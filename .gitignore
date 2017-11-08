@@ -1,0 +1,5 @@
+.idea
+logs/
+/samples/
+*/__pycache__/
+
