@@ -1,0 +1,1 @@
+# This is a CNN encoder which uses the Inception V3 architecture

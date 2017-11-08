@@ -63,7 +63,6 @@ def main(_):
             output_width=FLAGS.output_width,
             output_height=FLAGS.output_height,
             batch_size=FLAGS.batch_size,
-            sample_num=FLAGS.batch_size,
             dataset_name=FLAGS.dataset,
             input_fname_pattern=FLAGS.input_fname_pattern,
             checkpoint_dir=FLAGS.checkpoint_dir,

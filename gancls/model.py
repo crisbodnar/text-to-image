@@ -1,14 +1,11 @@
 from __future__ import division
 import os
 import time
-import math
-from glob import glob
-import tensorflow as tf
-import numpy as np
-from six.moves import xrange
 
 from gancls.ops import *
 from gancls.utils import *
+from random import randint
+
 
 
 def conv_out_size_same(size, stride):
@@ -154,8 +151,18 @@ class GANCLS(object):
                                            self.D_synthetic_summ])
         self.writer = SummaryWriter("./logs", self.sess.graph)
 
+        # TODO: There is a bug which enforces the sample num to be the bath size.
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
-        _, _, sample_phi, _, _ = self.dataset.train.next_batch(self.sample_num, 4)
+        _, sample_phi, _, captions = self.dataset.test.next_batch_test(self.sample_num,
+                                                                       randint(0, self.dataset.test.num_examples), 1)
+        sample_phi = np.squeeze(sample_phi, axis=0)
+        print(sample_phi.shape)
+
+        # Display the captions of the sampled images
+        print('\nCaptions of the sampled images:')
+        for caption_batch in captions:
+            print(caption_batch[0])
+        print()
 
         counter = 1
         start_time = time.time()
@@ -167,7 +174,6 @@ class GANCLS(object):
             print(" [!] Load failed...")
 
         for epoch in range(config.epoch):
-            # self.data = glob(os.path.join("../data", config.dataset, self.input_fname_pattern))
             # Updates per epoch are given by the training data size / batch size
             updates_per_epoch = self.dataset.train.num_examples // self.batch_size
 
@@ -193,10 +199,10 @@ class GANCLS(object):
                                                       feed_dict={self.z: batch_z, self.phi_inputs: phi})
                 self.writer.add_summary(summary_str, counter)
 
-                # Run G_optim twice to make sure that d_loss does not go to zero (different from paper)
-                _, err_g, summary_str = self.sess.run([G_optim, self.G_loss, self.G_merged_summ],
-                                                      feed_dict={self.z: batch_z, self.phi_inputs: phi})
-                self.writer.add_summary(summary_str, counter)
+                # # Run G_optim twice to make sure that d_loss does not go to zero (different from paper)
+                # _, err_g, summary_str = self.sess.run([G_optim, self.G_loss, self.G_merged_summ],
+                #                                       feed_dict={self.z: batch_z, self.phi_inputs: phi})
+                # self.writer.add_summary(summary_str, counter)
 
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
@@ -204,20 +210,20 @@ class GANCLS(object):
                          time.time() - start_time, err_d, err_g))
 
                 if np.mod(counter, 100) == 1:
-                    # try:
-                    samples = self.sess.run(
-                        self.sampler,
-                        feed_dict={
-                            self.z_sample: sample_z,
-                            self.phi_sample: sample_phi,
-                        },
-                    )
-                    save_images(samples, image_manifold_size(samples.shape[0]),
-                                './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-                    print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
-                    # except Exception as excep:
-                    #     print("one pic error!...")
-                    #     print(excep)
+                    try:
+                        samples = self.sess.run(
+                            self.sampler,
+                            feed_dict={
+                                self.z_sample: sample_z,
+                                self.phi_sample: sample_phi,
+                            },
+                        )
+                        save_images(samples, image_manifold_size(samples.shape[0]),
+                                    './{}/{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, 'GANCLS', epoch, idx))
+                        print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
+                    except Exception as excep:
+                        print("one pic error!...")
+                        print(excep)
 
                 if np.mod(counter, 500) == 2:
                     self.save(config.checkpoint_dir, counter)
@@ -229,9 +235,9 @@ class GANCLS(object):
 
             # Compress the conditional phi vector using a fully connected layer
             d_fc_phi_w = tf.get_variable('d_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             d_fc_phi_b = tf.get_variable('d_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             c_phi = lrelu(tf.matmul(phi, d_fc_phi_w) + d_fc_phi_b, name='d_c_phi')
 
             h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
@@ -259,9 +265,9 @@ class GANCLS(object):
 
             # Compress the conditional phi vector using a fully connected layer
             g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
 
             # Append the compressed phi vector to the z noise vector
@@ -302,9 +308,9 @@ class GANCLS(object):
 
             # Compress the conditional phi vector using a fully connected layer
             g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.constant_initializer(0.0))
+                                         initializer=tf.random_normal_initializer(stddev=0.02))
             c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
 
             # Append the compressed phi vector to the z noise vector
