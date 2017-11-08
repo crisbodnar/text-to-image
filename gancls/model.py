@@ -94,12 +94,15 @@ class GANCLS(object):
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name='z')
         self.z_sum = histogram_summary("z", self.z)
 
+        self.z_sample =  tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
+        self.phi_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.phi_dim], name='phi_sample')
+
         self.G = self.generator(self.z, self.phi_inputs)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.phi_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
 
-        self.sampler = self.sampler(self.z, self.phi_inputs)
+        self.sampler = self.sampler(self.z_sample, self.phi_sample)
 
         self.D_synthetic_summ = histogram_summary('d_synthetic_sum', self.D_synthetic)
         self.D_real_match_summ = histogram_summary('d_real_match_sum', self.D_real_match)
@@ -152,20 +155,7 @@ class GANCLS(object):
         self.writer = SummaryWriter("./logs", self.sess.graph)
 
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
-
-        # sample_files = self.data[0:self.sample_num]
-        # sample = [
-        #     get_image(sample_file,
-        #               input_height=self.input_height,
-        #               input_width=self.input_width,
-        #               resize_height=self.output_height,
-        #               resize_width=self.output_width,
-        #               crop=self.crop,
-        #               grayscale=self.grayscale) for sample_file in sample_files]
-        # if self.grayscale:
-        #     sample_inputs = np.array(sample).astype(np.float32)[:, :, :, None]
-        # else:
-        #     sample_inputs = np.array(sample).astype(np.float32)
+        _, _, sample_phi, _, _ = self.dataset.train.next_batch(self.sample_num, 4)
 
         counter = 1
         start_time = time.time()
@@ -182,20 +172,6 @@ class GANCLS(object):
             updates_per_epoch = self.dataset.train.num_examples // self.batch_size
 
             for idx in range(0, updates_per_epoch):
-                # batch_files = self.data[idx * config.batch_size:(idx + 1) * config.batch_size]
-                # batch = [
-                #     get_image(batch_file,
-                #               input_height=self.input_height,
-                #               input_width=self.input_width,
-                #               resize_height=self.output_height,
-                #               resize_width=self.output_width,
-                #               crop=self.crop,
-                #               grayscale=self.grayscale) for batch_file in batch_files]
-                # if self.grayscale:
-                #     batch_images = np.array(batch).astype(np.float32)[:, :, :, None]
-                # else:
-                #     batch_images = np.array(batch).astype(np.float32)
-
                 images, wrong_images, phi, _, _ = self.dataset.train.next_batch(self.batch_size, 4)
 
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
@@ -229,16 +205,16 @@ class GANCLS(object):
 
                 if np.mod(counter, 100) == 1:
                     # try:
-                        samples, d_loss, g_loss = self.sess.run(
-                            [self.sampler],
-                            feed_dict={
-                                self.z: sample_z,
-                                self.phi_inputs: phi,
-                            },
-                        )
-                        # # save_images(samples, image_manifold_size(samples.shape[0]),
-                        # #             './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-                        # # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
+                    samples = self.sess.run(
+                        self.sampler,
+                        feed_dict={
+                            self.z_sample: sample_z,
+                            self.phi_sample: sample_phi,
+                        },
+                    )
+                    save_images(samples, image_manifold_size(samples.shape[0]),
+                                './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                    print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
                     # except Exception as excep:
                     #     print("one pic error!...")
                     #     print(excep)
@@ -350,6 +326,7 @@ class GANCLS(object):
 
             h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
 
+            print(tf.shape(h4))
             return tf.nn.tanh(h4)
 
     @property
