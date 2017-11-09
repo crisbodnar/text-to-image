@@ -14,7 +14,7 @@ def conv_out_size_same(size, stride):
 class GANCLS(object):
     def __init__(self, sess, crop=True,
                  batch_size=64, sample_num=64, output_size=64, z_dim=100, c_phi_dim=128,
-                 phi_dim=1024, gf_dim=64, df_dim=64,
+                 phi_dim=1024, gf_dim=128, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
                  input_fname_pattern='*.jpg', checkpoint_dir=None, dataset=None):
         """
@@ -86,12 +86,13 @@ class GANCLS(object):
         self.z_sample =  tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
         self.phi_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.phi_dim], name='phi_sample')
 
-        self.G = self.generator(self.z, self.phi_inputs)
+        self.G = self.generator(self.z, self.phi_inputs, reuse=False)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.phi_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
-        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
+        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs,
+                                                                               reuse=True)
 
-        self.sampler = self.sampler(self.z_sample, self.phi_sample)
+        self.sampler = self.generator(self.z_sample, self.phi_sample, is_training=False, reuse=True)
 
         self.D_synthetic_summ = histogram_summary('d_synthetic_sum', self.D_synthetic)
         self.D_real_match_summ = histogram_summary('d_real_match_sum', self.D_real_match)
@@ -223,37 +224,40 @@ class GANCLS(object):
         with tf.variable_scope("discriminator", reuse=reuse):
             net_ho = tf.layers.conv2d(inputs=inputs, filters=self.df_dim, kernel_size=(4, 4), strides=(2, 2),
                                       padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                      bias_initializer=w_init, name='d_ho/conv2d')
-            net_h0 = tf.layers.conv2d(inputs=net_ho, filters=self.df_dim * 2, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                      bias_initializer=w_init, name='d_h1/conv2d')
-            net_h1 = batch_normalization(net_h0, is_training=is_training, initializer=gamma_init,
+                                      name='d_ho/conv2d')
+
+            net_h1 = tf.layers.conv2d(inputs=net_ho, filters=self.df_dim * 2, kernel_size=(4, 4), strides=(2, 2),
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='d_h1/conv2d')
+            net_h1 = batch_normalization(net_h1, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h1/batch_norm')
+
             net_h2 = tf.layers.conv2d(inputs=net_h1, filters=self.df_dim * 4, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                      bias_initializer=w_init, name='d_h2/conv2d')
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='d_h2/conv2d')
             net_h2 = batch_normalization(net_h2, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h2/batch_norm')
+
             net_h3 = tf.layers.conv2d(inputs=net_h2, filters=self.df_dim * 8, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                      bias_initializer=w_init, name='d_h3/conv2d')
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='d_h3/conv2d')
             net_h3 = batch_normalization(net_h3, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h3/batch_norm')
 
             # Reduction in dimensionality
             net = tf.layers.conv2d(inputs=net_h3, filters=self.df_dim * 2, kernel_size=(1, 1), strides=(1, 1),
-                                   padding='valid', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                   bias_initializer=w_init, name='d_h4_res/conv2d')
+                                   padding='valid', activation=None, kernel_initializer=w_init,
+                                   name='d_h4_res/conv2d')
             net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
-                                         activation=lambda x: lrelu(x, 0.2), name='d_h4/batch_norm')
+                                      activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm')
             net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 2, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                   bias_initializer=w_init, name='d_h4_res/conv2d2')
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='d_h4_res/conv2d2')
             net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
                                       activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm2')
             net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 8, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                   bias_initializer=w_init, name='d_h4_res/conv2d3')
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='d_h4_res/conv2d3')
             net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
                                       activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm3')
             net_h4 = tf.add(net_h3, net, name='d_h4/add')
@@ -261,103 +265,158 @@ class GANCLS(object):
 
             # Append embeddings in depth
             net_embed = tf.layers.dense(inputs=phi, units=self.c_phi_dim, activation=lambda x: lrelu(x, 0.2),
-                                        name='g_fc_embed')
+                                        name='d_net_embed')
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3, name='d_h4_concat')
 
             # --------------------------------------------------------
             net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
-                                      padding='valid', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
-                                      bias_initializer=w_init, name='d_h4_concat/conv2d')
+                                      padding='valid', activation=None, kernel_initializer=w_init,
+                                      name='d_h4_concat/conv2d')
             net_h4 = batch_normalization(net_h4, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h4_concat/batch_norm')
 
             net_logits = tf.layers.conv2d(inputs=net_h4, filters=1, kernel_size=(s16, s16), strides=(s16, s16),
                                           padding='valid', kernel_initializer=w_init,
-                                          bias_initializer=w_init, name='net_logits')
+                                          name='d_net_logits')
 
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, phi):
-        with tf.variable_scope("generator") as scope:
+    def generator(self, z, phi, is_training=True, reuse=False):
+        w_init = tf.random_normal_initializer(stddev=0.02)
+        gamma_init = tf.random_normal_initializer(1., 0.02)
 
-            s_h, s_w = self.output_size, self.output_size
-            s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-            s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-            s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-            s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
+        s = self.output_size
+        s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
+        with tf.variable_scope("generator", reuse=reuse):
+            # Compress the embedding and append it to z
+            net_embed = tf.layers.dense(inputs=phi, units=self.c_phi_dim, activation=None,
+                                        name='g_net_embed')
+            net_input = tf.concat([z, net_embed], 1, name='g_z_concat')
 
-            # Compress the conditional phi vector using a fully connected layer
-            g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
+            net_h0 = tf.layers.dense(net_input, units=self.gf_dim*8*s16*s16, activation=None,
+                                     kernel_initializer=w_init, name='g_h0/dense')
+            net_h0 = batch_normalization(net_h0, is_training=is_training, initializer=gamma_init,
+                                         activation=tf.identity, name='g_ho/batch_norm')
+            net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1], name='g_ho/reshape')
 
-            # Append the compressed phi vector to the z noise vector
-            z_concat = tf.concat([z, c_phi], 1, name='g_z_concat')
 
-            # project `z` and reshape
-            self.z_, self.h0_w, self.h0_b = linear(z_concat, self.gf_dim * 8 * s_h16 * s_w16, 'g_h0_lin', with_w=True)
+            net = tf.layers.conv2d(inputs=net_h0, filters=self.gf_dim * 2, kernel_size=(1, 1), strides=(1, 1),
+                                   padding='valid', activation=None, kernel_initializer=w_init,
+                                   name='g_h1_res/conv2d')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=tf.nn.relu, name='g_h1_res/batch_norm')
+            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim * 2, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='g_h1_res/conv2d2')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=tf.nn.relu, name='g_h1_res/batch_norm2')
+            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim * 8, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='g_h1_res/conv2d3')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=None, name='g_h1_res/batch_norm3')
+            net_h1 = tf.add(net_h0, net, name='g_h1/add')
+            net_h1 = tf.nn.relu(net_h1, name='g_h1/add_lrelu')
 
-            self.h0 = tf.reshape(self.z_, [-1, s_h16, s_w16, self.gf_dim * 8])
-            h0 = tf.nn.relu(self.g_bn0(self.h0))
 
-            self.h1, self.h1_w, self.h1_b = deconv2d(
-                h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1', with_w=True)
-            h1 = tf.nn.relu(self.g_bn1(self.h1))
+            net_h2 = tf.layers.conv2d_transpose(net_h1, filters=self.gf_dim*4, kernel_size=(4, 4), strides=(2, 2),
+                                                padding='same', activation=None, kernel_initializer=w_init,
+                                                name='g_h2/deconv2d')
+            net_h2 = tf.layers.conv2d(inputs=net_h2, filters=self.gf_dim*4, kernel_size=(3, 3), strides=(1, 1),
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='g_h2/conv2d')
+            net_h2 = batch_normalization(net_h2, is_training=is_training, initializer=gamma_init,
+                                         activation=None, name='g_h2/batch_norm')
 
-            h2, self.h2_w, self.h2_b = deconv2d(
-                h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2', with_w=True)
-            h2 = tf.nn.relu(self.g_bn2(h2))
 
-            h3, self.h3_w, self.h3_b = deconv2d(
-                h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3', with_w=True)
-            h3 = tf.nn.relu(self.g_bn3(h3))
+            net = tf.layers.conv2d(inputs=net_h2, filters=self.gf_dim, kernel_size=(1, 1), strides=(1, 1),
+                                   padding='valid', activation=None, kernel_initializer=w_init,
+                                   name='g_h3_res/conv2d')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=tf.nn.relu, name='g_h3_res/batch_norm')
+            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='g_h3_res/conv2d2')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=tf.nn.relu, name='g_h3_res/batch_norm2')
+            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim*4, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=None, kernel_initializer=w_init,
+                                   name='g_h3_res/conv2d3')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=None, name='g_h3_res/batch_norm3')
+            net_h3 = tf.add(net_h2, net, name='g_h3/add')
+            net_h3 = tf.nn.relu(net_h3, name='g_h3/add_lrelu')
 
-            h4, self.h4_w, self.h4_b = deconv2d(
-                h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4', with_w=True)
 
-            return tf.nn.tanh(h4)
+            net_h4 = tf.layers.conv2d_transpose(net_h3, filters=self.gf_dim*2, kernel_size=(4, 4), strides=(2, 2),
+                                                padding='same', activation=None, kernel_initializer=w_init,
+                                                name='g_h4/deconv2d')
+            net_h4 = tf.layers.conv2d(inputs=net_h4, filters=self.gf_dim*2, kernel_size=(3, 3), strides=(1, 1),
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='g_h4/conv2d')
+            net_h4 = batch_normalization(net_h4, is_training=is_training, initializer=gamma_init,
+                                         activation=tf.nn.relu, name='g_h4/batch_norm')
 
-    def sampler(self, z, phi):
-        with tf.variable_scope("generator") as scope:
-            scope.reuse_variables()
 
-            s_h, s_w = self.output_size, self.output_size
-            s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-            s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-            s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-            s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
+            net_h5 = tf.layers.conv2d_transpose(net_h4, filters=self.gf_dim, kernel_size=(4, 4), strides=(2, 2),
+                                                padding='same', activation=None, kernel_initializer=w_init,
+                                                name='g_h5/deconv2d')
+            net_h5 = tf.layers.conv2d(inputs=net_h5, filters=self.gf_dim, kernel_size=(3, 3), strides=(1, 1),
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='g_h5/conv2d')
+            net_h5 = batch_normalization(net_h5, is_training=is_training, initializer=gamma_init,
+                                         activation=tf.nn.relu, name='g_h5/batch_norm')
 
-            # Compress the conditional phi vector using a fully connected layer
-            g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
 
-            # Append the compressed phi vector to the z noise vector
-            z_concat = tf.concat([z, c_phi], 1, name='g_z_concat')
+            net_logits = tf.layers.conv2d_transpose(net_h5, filters=self.c_dim, kernel_size=(4, 4), strides=(2, 2),
+                                                padding='same', activation=None, kernel_initializer=w_init,
+                                                name='g_logits/deconv2d')
+            net_logits = tf.layers.conv2d(inputs=net_logits, filters=self.c_dim, kernel_size=(3, 3), strides=(1, 1),
+                                      padding='same', activation=None, kernel_initializer=w_init,
+                                      name='g_logits/conv2d')
 
-            # project `z` and reshape
-            h0 = tf.reshape(linear(z_concat, self.gf_dim * 8 * s_h16 * s_w16, 'g_h0_lin'),
-                            [-1, s_h16, s_w16, self.gf_dim * 8])
-            h0 = tf.nn.relu(self.g_bn0(h0, train=False))
+            net_output = tf.nn.tanh(net_logits)
+            return net_output
 
-            h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
-            h1 = tf.nn.relu(self.g_bn1(h1, train=False))
-
-            h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
-            h2 = tf.nn.relu(self.g_bn2(h2, train=False))
-
-            h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
-            h3 = tf.nn.relu(self.g_bn3(h3, train=False))
-
-            h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
-
-            print(tf.shape(h4))
-            return tf.nn.tanh(h4)
+    # def sampler(self, z, phi):
+    #     with tf.variable_scope("generator") as scope:
+    #         scope.reuse_variables()
+    #
+    #         s_h, s_w = self.output_size, self.output_size
+    #         s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
+    #         s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
+    #         s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
+    #         s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
+    #
+    #         # Compress the conditional phi vector using a fully connected layer
+    #         g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
+    #                                      initializer=tf.random_normal_initializer(stddev=0.02))
+    #         g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
+    #                                      initializer=tf.random_normal_initializer(stddev=0.02))
+    #         c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
+    #
+    #         # Append the compressed phi vector to the z noise vector
+    #         z_concat = tf.concat([z, c_phi], 1, name='g_z_concat')
+    #
+    #         # project `z` and reshape
+    #         h0 = tf.reshape(linear(z_concat, self.gf_dim * 8 * s_h16 * s_w16, 'g_h0_lin'),
+    #                         [-1, s_h16, s_w16, self.gf_dim * 8])
+    #         h0 = tf.nn.relu(self.g_bn0(h0, train=False))
+    #
+    #         h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
+    #         h1 = tf.nn.relu(self.g_bn1(h1, train=False))
+    #
+    #         h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
+    #         h2 = tf.nn.relu(self.g_bn2(h2, train=False))
+    #
+    #         h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
+    #         h3 = tf.nn.relu(self.g_bn3(h3, train=False))
+    #
+    #         h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
+    #
+    #         print(tf.shape(h4))
+    #         return tf.nn.tanh(h4)
 
     @property
     def model_dir(self):
