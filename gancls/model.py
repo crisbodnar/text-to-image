@@ -90,7 +90,8 @@ class GANCLS(object):
         self.G = self.generator(self.z, self.phi_inputs)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.phi_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
-        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
+        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs,
+                                                                               reuse=True)
 
         self.sampler = self.sampler(self.z_sample, self.phi_sample)
 
@@ -104,7 +105,7 @@ class GANCLS(object):
                                                     labels=tf.zeros_like(self.D_synthetic)))
         self.D_real_match_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_real_match_logits,
-                                                    labels=tf.fill(self.D_real_match.get_shape(), 0.9)))
+                                                    labels=tf.ones_like(self.D_real_match)))
         self.D_real_mismatch_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_real_mismatch_logits,
                                                     labels=tf.zeros_like(self.D_real_mismatch)))
@@ -309,16 +310,16 @@ class GANCLS(object):
                             [-1, s_h16, s_w16, self.gf_dim * 8])
             h0 = tf.nn.relu(self.g_bn0(h0, train=False))
 
-            h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
+            h1 = deconv2d(h0, [self.sample_num, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
             h1 = tf.nn.relu(self.g_bn1(h1, train=False))
 
-            h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
+            h2 = deconv2d(h1, [self.sample_num, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
             h2 = tf.nn.relu(self.g_bn2(h2, train=False))
 
-            h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
+            h3 = deconv2d(h2, [self.sample_num, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
             h3 = tf.nn.relu(self.g_bn3(h3, train=False))
 
-            h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
+            h4 = deconv2d(h3, [self.sample_num, s_h, s_w, self.c_dim], name='g_h4')
 
             print(tf.shape(h4))
             return tf.nn.tanh(h4)
