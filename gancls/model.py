@@ -13,7 +13,7 @@ def conv_out_size_same(size, stride):
 
 class GANCLS(object):
     def __init__(self, sess, crop=True,
-                 batch_size=64, sample_num=64, output_height=64, output_width=64, z_dim=100, c_phi_dim=128,
+                 batch_size=64, sample_num=64, output_size=64, z_dim=100, c_phi_dim=128,
                  phi_dim=1024, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
                  input_fname_pattern='*.jpg', checkpoint_dir=None, dataset=None):
@@ -39,8 +39,7 @@ class GANCLS(object):
         self.batch_size = batch_size
         self.sample_num = sample_num
 
-        self.output_height = output_height
-        self.output_width = output_width
+        self.output_size = output_size
 
         self.z_dim = z_dim
         self.phi_dim = phi_dim
@@ -90,8 +89,7 @@ class GANCLS(object):
         self.G = self.generator(self.z, self.phi_inputs)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.phi_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
-        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs,
-                                                                               reuse=True)
+        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
 
         self.sampler = self.sampler(self.z_sample, self.phi_sample)
 
@@ -105,7 +103,7 @@ class GANCLS(object):
                                                     labels=tf.zeros_like(self.D_synthetic)))
         self.D_real_match_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_real_match_logits,
-                                                    labels=tf.ones_like(self.D_real_match)))
+                                                    labels=tf.fill(self.D_real_match.get_shape(), 0.9)))
         self.D_real_mismatch_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_real_mismatch_logits,
                                                     labels=tf.zeros_like(self.D_real_mismatch)))
@@ -217,36 +215,73 @@ class GANCLS(object):
                 if np.mod(counter, 500) == 2:
                     self.save(config.checkpoint_dir, counter)
 
-    def discriminator(self, image, phi, reuse=False):
-        with tf.variable_scope("discriminator") as scope:
-            if reuse:
-                scope.reuse_variables()
+    def discriminator(self, inputs, phi, is_training=True, reuse=False):
+        w_init = tf.random_normal_initializer(stddev=0.02)
+        gamma_init = tf.random_normal_initializer(1., 0.02)
 
-            # Compress the conditional phi vector using a fully connected layer
-            d_fc_phi_w = tf.get_variable('d_fc_phi_w', [self.phi_dim, self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            d_fc_phi_b = tf.get_variable('d_fc_phi_b', [self.c_phi_dim],
-                                         initializer=tf.random_normal_initializer(stddev=0.02))
-            c_phi = lrelu(tf.matmul(phi, d_fc_phi_w) + d_fc_phi_b, name='d_c_phi')
+        s16 = self.output_size / 16
+        with tf.variable_scope("discriminator", reuse=reuse):
+            net_ho = tf.layers.conv2d(inputs=inputs, filters=self.df_dim, kernel_size=(4, 4), strides=(2, 2),
+                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                      bias_initializer=w_init, name='d_ho/conv2d')
+            net_h0 = tf.layers.conv2d(inputs=net_ho, filters=self.df_dim * 2, kernel_size=(4, 4), strides=(2, 2),
+                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                      bias_initializer=w_init, name='d_h1/conv2d')
+            net_h1 = batch_normalization(net_h0, is_training=is_training, initializer=gamma_init,
+                                         activation=lambda x: lrelu(x, 0.2), name='d_h1/batch_norm')
+            net_h2 = tf.layers.conv2d(inputs=net_h1, filters=self.df_dim * 4, kernel_size=(4, 4), strides=(2, 2),
+                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                      bias_initializer=w_init, name='d_h2/conv2d')
+            net_h2 = batch_normalization(net_h2, is_training=is_training, initializer=gamma_init,
+                                         activation=lambda x: lrelu(x, 0.2), name='d_h2/batch_norm')
+            net_h3 = tf.layers.conv2d(inputs=net_h2, filters=self.df_dim * 8, kernel_size=(4, 4), strides=(2, 2),
+                                      padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                      bias_initializer=w_init, name='d_h3/conv2d')
+            net_h3 = batch_normalization(net_h3, is_training=is_training, initializer=gamma_init,
+                                         activation=lambda x: lrelu(x, 0.2), name='d_h3/batch_norm')
 
-            h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
-            h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))
-            h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim * 4, name='d_h2_conv')))
-            h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim * 8, name='d_h3_conv')))
+            # Reduction in dimensionality
+            net = tf.layers.conv2d(inputs=net_h3, filters=self.df_dim * 2, kernel_size=(1, 1), strides=(1, 1),
+                                   padding='valid', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                   bias_initializer=w_init, name='d_h4_res/conv2d')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                         activation=lambda x: lrelu(x, 0.2), name='d_h4/batch_norm')
+            net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 2, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                   bias_initializer=w_init, name='d_h4_res/conv2d2')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm2')
+            net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 8, kernel_size=(3, 3), strides=(1, 1),
+                                   padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                   bias_initializer=w_init, name='d_h4_res/conv2d3')
+            net = batch_normalization(net, is_training=is_training, initializer=gamma_init,
+                                      activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm3')
+            net_h4 = tf.add(net_h3, net, name='d_h4/add')
+            net_h4 = lrelu(net_h4, 0.2, name='d_h4/add_lrelu')
 
-            # Concatenate in depth the compressed text feature vectors to the last hidden layer
-            concat_w = h3.get_shape().as_list()[1]
-            concat_h = h3.get_shape().as_list()[1]
-            depth_c_phi = tf.reshape(c_phi, [self.batch_size, concat_w, concat_h, -1])
-            concat_h3_phi = tf.concat([h3, depth_c_phi], 3, name='d_concat_h3_phi')
+            # Append embeddings in depth
+            net_embed = tf.layers.dense(inputs=phi, units=self.c_phi_dim, activation=lambda x: lrelu(x, 0.2),
+                                        name='g_fc_embed')
+            net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
+            net_h4_concat = tf.concat([net_h4, net_embed], 3, name='d_h4_concat')
 
-            h4 = linear(tf.reshape(concat_h3_phi, [self.batch_size, -1]), 1, 'd_h4_lin')
+            # --------------------------------------------------------
+            net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
+                                      padding='valid', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
+                                      bias_initializer=w_init, name='d_h4_concat/conv2d')
+            net_h4 = batch_normalization(net_h4, is_training=is_training, initializer=gamma_init,
+                                         activation=lambda x: lrelu(x, 0.2), name='d_h4_concat/batch_norm')
 
-            return tf.nn.sigmoid(h4), h4
+            net_logits = tf.layers.conv2d(inputs=net_h4, filters=1, kernel_size=(s16, s16), strides=(s16, s16),
+                                          padding='valid', kernel_initializer=w_init,
+                                          bias_initializer=w_init, name='net_logits')
+
+            return tf.nn.sigmoid(net_logits), net_logits
 
     def generator(self, z, phi):
         with tf.variable_scope("generator") as scope:
-            s_h, s_w = self.output_height, self.output_width
+
+            s_h, s_w = self.output_size, self.output_size
             s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
             s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
             s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
@@ -289,7 +324,7 @@ class GANCLS(object):
         with tf.variable_scope("generator") as scope:
             scope.reuse_variables()
 
-            s_h, s_w = self.output_height, self.output_width
+            s_h, s_w = self.output_size, self.output_size
             s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
             s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
             s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
@@ -310,16 +345,16 @@ class GANCLS(object):
                             [-1, s_h16, s_w16, self.gf_dim * 8])
             h0 = tf.nn.relu(self.g_bn0(h0, train=False))
 
-            h1 = deconv2d(h0, [self.sample_num, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
+            h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
             h1 = tf.nn.relu(self.g_bn1(h1, train=False))
 
-            h2 = deconv2d(h1, [self.sample_num, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
+            h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
             h2 = tf.nn.relu(self.g_bn2(h2, train=False))
 
-            h3 = deconv2d(h2, [self.sample_num, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
+            h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
             h3 = tf.nn.relu(self.g_bn3(h3, train=False))
 
-            h4 = deconv2d(h3, [self.sample_num, s_h, s_w, self.c_dim], name='g_h4')
+            h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
 
             print(tf.shape(h4))
             return tf.nn.tanh(h4)
@@ -328,7 +363,7 @@ class GANCLS(object):
     def model_dir(self):
         return "{}_{}_{}_{}".format(
             self.dataset_name, self.batch_size,
-            self.output_height, self.output_width)
+            self.output_size, self.output_size)
 
     def save(self, checkpoint_dir, step):
         model_name = "GANCLS.model"

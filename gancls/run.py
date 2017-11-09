@@ -60,8 +60,7 @@ def main(_):
     with tf.Session(config=run_config) as sess:
         gancls = GANCLS(
             sess,
-            output_width=FLAGS.output_width,
-            output_height=FLAGS.output_height,
+            output_size=FLAGS.output_width,
             batch_size=FLAGS.batch_size,
             dataset_name=FLAGS.dataset,
             input_fname_pattern=FLAGS.input_fname_pattern,

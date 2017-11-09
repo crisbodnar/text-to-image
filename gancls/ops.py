@@ -44,6 +44,20 @@ class batch_norm(object):
                                             scope=self.name)
 
 
+def batch_normalization(x, is_training, initializer, activation, name):
+    with tf.variable_scope(name):
+        epsilon = 1e-5
+        momentum = 0.9
+        layer = tf.layers.batch_normalization(x,
+                                              momentum=momentum,
+                                              epsilon=epsilon,
+                                              scale=True,
+                                              training=is_training,
+                                              name='batch_norm',
+                                              gamma_initializer=initializer)
+        return activation(layer)
+
+
 def conv_cond_concat(x, y):
     """Concatenate conditioning vector on feature map axis."""
     x_shapes = x.get_shape()
@@ -88,8 +102,8 @@ def deconv2d(input_, output_shape, k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02, name
             return deconv
 
 
-def lrelu(x, leak=0.2, name="lrelu"):
-    return tf.maximum(x, leak * x)
+def lrelu(x, alpha=0.2, name='lrelu'):
+    return tf.nn.relu(x) - alpha * tf.nn.relu(-x)
 
 
 def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=False):
