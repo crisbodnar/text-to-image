@@ -7,7 +7,6 @@ from gancls.utils import *
 from random import randint
 
 
-
 def conv_out_size_same(size, stride):
     return int(math.ceil(float(size) / float(stride)))
 
@@ -68,12 +67,6 @@ class GANCLS(object):
         self.input_fname_pattern = input_fname_pattern
         self.checkpoint_dir = checkpoint_dir
 
-        # self.data = glob(os.path.join("../data", self.dataset_name, self.input_fname_pattern))
-        # read_img = imread(self.data[0])
-        # if len(read_img.shape) >= 3:  # check if image is a non-grayscale image by checking channel number
-        #     self.c_dim = imread(self.data[0]).shape[-1]
-        # else:
-        #     self.c_dim = 1
         self.c_dim = 3
 
         self.grayscale = (self.c_dim == 1)
@@ -96,8 +89,8 @@ class GANCLS(object):
 
         self.G = self.generator(self.z, self.phi_inputs)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.phi_inputs, reuse=False)
-        self.D_real_match, self.D_real_match_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
-        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
+        self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
+        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs, reuse=True)
 
         self.sampler = self.sampler(self.z_sample, self.phi_sample)
 
@@ -141,10 +134,8 @@ class GANCLS(object):
             .minimize(self.D_loss, var_list=self.d_vars)
         G_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
             .minimize(self.G_loss, var_list=self.g_vars)
-        try:
-            tf.global_variables_initializer().run()
-        except:
-            tf.initialize_all_variables().run()
+
+        tf.global_variables_initializer().run()
 
         self.G_merged_summ = merge_summary([self.z_sum, self.G_summ])
         self.D_merged_summ = merge_summary([self.z_sum, self.D_real_mismatch_summ, self.D_real_match_summ,
@@ -152,6 +143,7 @@ class GANCLS(object):
         self.writer = SummaryWriter("./logs", self.sess.graph)
 
         # TODO: There is a bug which enforces the sample num to be the bath size.
+        # TODO: Find out why the Images which are generated are not consistent
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
         _, sample_phi, _, captions = self.dataset.test.next_batch_test(self.sample_num,
                                                                        randint(0, self.dataset.test.num_examples), 1)
@@ -160,8 +152,8 @@ class GANCLS(object):
 
         # Display the captions of the sampled images
         print('\nCaptions of the sampled images:')
-        for caption_batch in captions:
-            print(caption_batch[0])
+        for caption_idx, caption_batch in enumerate(captions):
+            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
         print()
 
         counter = 1
@@ -211,13 +203,9 @@ class GANCLS(object):
 
                 if np.mod(counter, 100) == 1:
                     try:
-                        samples = self.sess.run(
-                            self.sampler,
-                            feed_dict={
-                                self.z_sample: sample_z,
-                                self.phi_sample: sample_phi,
-                            },
-                        )
+                        samples = self.sess.run(self.sampler, feed_dict={self.z_sample: sample_z,
+                                                                         self.phi_sample: sample_phi,
+                                                                         })
                         save_images(samples, image_manifold_size(samples.shape[0]),
                                     './{}/{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, 'GANCLS', epoch, idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
