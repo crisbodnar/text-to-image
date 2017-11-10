@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import pickle
 import random
+import os
 
 
 class Dataset(object):
@@ -20,6 +21,7 @@ class Dataset(object):
         self._epochs_completed = -1
         self._num_examples = len(images)
         self._saveIDs = self.saveIDs()
+        self._dataset_name = os.path.basename(os.path.normpath(workdir))
 
         # shuffle on first run
         self._index_in_epoch = self._num_examples
@@ -48,6 +50,10 @@ class Dataset(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
+
+    @property
+    def dataset_name(self):
+        return self._dataset_name
 
     def saveIDs(self):
         self._saveIDs = np.arange(self._num_examples)
@@ -207,6 +213,7 @@ class TextDataset(object):
         self.train = None
         self.test = None
         self.workdir = workdir
+
         if embedding_type == 'cnn-rnn':
             self.embedding_filename = '/char-CNN-RNN-embeddings.pickle'
         elif embedding_type == 'skip-thought':

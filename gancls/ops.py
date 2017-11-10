@@ -128,9 +128,9 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
             # s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
             #
             # # Compress the conditional phi vector using a fully connected layer
-            # g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.phi_dim, self.c_phi_dim],
+            # g_fc_phi_w = tf.get_variable('g_fc_phi_w', [self.embed_dim, self.compressed_embed_dim],
             #                              initializer=tf.random_normal_initializer(stddev=0.02))
-            # g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.c_phi_dim],
+            # g_fc_phi_b = tf.get_variable('g_fc_phi_b', [self.compressed_embed_dim],
             #                              initializer=tf.random_normal_initializer(stddev=0.02))
             # c_phi = lrelu(tf.matmul(phi, g_fc_phi_w) + g_fc_phi_b, name='g_c_phi')
             #
