@@ -1,8 +1,8 @@
 import os
-import scipy.misc
 import numpy as np
 
-from gancls.model import GANCLS
+from gancls.model import GanCls
+from gancls.trainer import GanClsTrainer
 from gancls.utils import pp, show_all_variables
 from preprocess.dataset import TextDataset
 
@@ -25,11 +25,6 @@ FLAGS = flags.FLAGS
 def main(_):
     pp.pprint(flags.FLAGS.__flags)
 
-    if FLAGS.input_width is None:
-        FLAGS.input_width = FLAGS.input_height
-    if FLAGS.output_width is None:
-        FLAGS.output_width = FLAGS.output_height
-
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
     if not os.path.exists(FLAGS.sample_dir):
@@ -50,18 +45,22 @@ def main(_):
     dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
-        gancls = GANCLS(
-                sess,
+        gancls = GanCls(
                 dataset=dataset,
                 output_size=FLAGS.output_size,
                 batch_size=FLAGS.batch_size,
-                checkpoint_dir=FLAGS.checkpoint_dir
             )
 
         show_all_variables()
 
         if FLAGS.train:
-            gancls.train(FLAGS)
+            gancls_trainer = GanClsTrainer(
+                sess=sess,
+                model=gancls,
+                dataset=dataset,
+                config=FLAGS
+            )
+            gancls_trainer.train()
         else:
             if not gancls.load(FLAGS.checkpoint_dir)[0]:
                 raise Exception("[!] Train a model first, then run test mode")
