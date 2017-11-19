@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import tensorflow as tf
 import scipy.misc
 import os
 import errno
@@ -72,3 +73,6 @@ def mkdir_p(path):
             pass
         else:
             raise
+
+
+

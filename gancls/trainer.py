@@ -2,11 +2,11 @@ from random import randint
 
 import tensorflow as tf
 from gancls.model import GanCls
-from gancls.utils import save_images, image_manifold_size
+from gancls.utils import save_images, image_manifold_size, load
+from preprocess.dataset import TextDataset
 import numpy as np
 import time
 import os
-from preprocess.dataset import TextDataset
 
 
 class GanClsTrainer(object):
@@ -84,7 +84,7 @@ class GanClsTrainer(object):
 
         counter = 1
         start_time = time.time()
-        could_load, checkpoint_counter = self.load(self.config.checkpoint_dir)
+        could_load, checkpoint_counter = load(self.model.directory, self.config.checkpoint_dir, self.sess, self.saver)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
@@ -123,7 +123,7 @@ class GanClsTrainer(object):
                 # self.writer.add_summary(summary_str, counter)
 
                 counter += 1
-                print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
+                print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
                       % (epoch, idx, updates_per_epoch,
                          time.time() - start_time, err_d, err_g))
 
@@ -145,14 +145,8 @@ class GanClsTrainer(object):
                 if np.mod(counter, 500) == 2:
                     self.save(self.config.checkpoint_dir, counter)
 
-    @property
-    def model_dir(self):
-        return "{}/{}_{}_{}".format(
-            self.model.name, self.dataset.dataset_name, self.model.batch_size, self.model.output_size
-        )
-
     def save(self, checkpoint_dir, step):
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model.directory)
 
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
@@ -160,19 +154,3 @@ class GanClsTrainer(object):
         self.saver.save(self.sess,
                         os.path.join(checkpoint_dir, self.model.name),
                         global_step=step)
-
-    def load(self, checkpoint_dir):
-        import re
-        print(" [*] Reading checkpoints...")
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-
-        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-        if ckpt and ckpt.model_checkpoint_path:
-            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
-            print(" [*] Success to read {}".format(ckpt_name))
-            return True, counter
-        else:
-            print(" [*] Failed to find a checkpoint")
-            return False, 0

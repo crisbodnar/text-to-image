@@ -237,5 +237,5 @@ class TextDataset(object):
                        aug_flag, class_id)
 
     @property
-    def dataset_name(self):
+    def name(self):
         return self._dataset_name

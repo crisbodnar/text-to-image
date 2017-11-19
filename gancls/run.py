@@ -3,6 +3,7 @@ import numpy as np
 
 from gancls.model import GanCls
 from gancls.trainer import GanClsTrainer
+from gancls.visualizer import GanClsVisualizer
 from gancls.utils import pp, show_all_variables
 from preprocess.dataset import TextDataset
 
@@ -15,9 +16,11 @@ flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
 flags.DEFINE_integer("output_size", 64, "The size of the output images to produce [64]")
+flags.DEFINE_integer("sample_num", 64, "Number of samples to generate [64]")
 flags.DEFINE_string("dataset", "flowers", "The name of dataset [celebA, mnist, lsun]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
+flags.DEFINE_string("test_dir", "visualisation", "Directory name to save the image samples [visualisation]")
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
 FLAGS = flags.FLAGS
 
@@ -49,6 +52,7 @@ def main(_):
                 dataset=dataset,
                 output_size=FLAGS.output_size,
                 batch_size=FLAGS.batch_size,
+                sample_num=FLAGS.sample_num,
             )
 
         show_all_variables()
@@ -58,12 +62,17 @@ def main(_):
                 sess=sess,
                 model=gancls,
                 dataset=dataset,
-                config=FLAGS
+                config=FLAGS,
             )
             gancls_trainer.train()
         else:
-            if not gancls.load(FLAGS.checkpoint_dir)[0]:
-                raise Exception("[!] Train a model first, then run test mode")
+            gancls_visualiser = GanClsVisualizer(
+                sess=sess,
+                model=gancls,
+                dataset=dataset,
+                config=FLAGS,
+            )
+            gancls_visualiser.visualize()
 
 
 if __name__ == '__main__':
