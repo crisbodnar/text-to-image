@@ -265,6 +265,29 @@ def visualize(sess, gancls, config, option):
         new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10])
                          for idx in chain(range(gancls.sample_num), range(gancls.sample_num - 1, -1, -1))]
         make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
+    elif option == 5:
+        image_set = []
+        values = np.arange(0, 1, 1. / config.sample_num)
+
+        for idx in range(100):
+            print(" [*] %d" % idx)
+            z_sample = np.random.uniform(-1, 1, size=(config.sample_num, gancls.z_dim))
+            _, sample_embed, _, captions \
+                = gancls.dataset.train.next_batch_test(1, randint(0, gancls.dataset.test.num_examples), 1)
+            print(sample_embed)
+            a_sample_embed = np.squeeze(sample_embed, axis=0)
+            sample_embed = np.tile(a_sample_embed, (gancls.sample_num, 1))
+
+            for kdx, z in enumerate(z_sample):
+                z[idx] = values[kdx]
+
+            image_set.append(sess.run(gancls.sampler, feed_dict={gancls.z_sample: z_sample,
+                                                                 gancls.phi_sample: sample_embed}))
+            make_gif(image_set[-1], './samples/test_gif_%s.gif' % idx)
+
+        new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10])
+                         for idx in chain(range(gancls.sample_num), range(gancls.sample_num - 1, -1, -1))]
+        make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
 
 
 def image_manifold_size(num_images):

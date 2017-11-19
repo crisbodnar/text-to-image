@@ -24,9 +24,10 @@ class GanClsVisualizer(object):
             raise LookupError('Could not load any checkpoint')
 
     def visualize(self):
+        # TODO: Solve bug with the generator which generates unmatched images.
         sample_z = np.random.uniform(-1, 1, size=(self.model.sample_num, self.model.z_dim))
-        _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
-                                                                         randint(0, self.dataset.test.num_examples), 1)
+        _, sample_embed, _, captions = self.dataset.train.next_batch_test(self.model.sample_num,
+                                                                          randint(0, self.dataset.test.num_examples), 1)
         sample_embed = np.squeeze(sample_embed, axis=0)
 
         samples = self.sess.run(self.model.sampler,
@@ -37,6 +38,6 @@ class GanClsVisualizer(object):
         save_images(samples, image_manifold_size(samples.shape[0]),
                     './{}/{}/{}/test.png'.format(self.config.test_dir, self.model.name, self.dataset.name))
 
-        visualize(self.sess, self.model, self.config, 4)
+        visualize(self.sess, self.model, self.config, 5)
 
 

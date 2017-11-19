@@ -69,7 +69,6 @@ class GanClsTrainer(object):
 
         tf.global_variables_initializer().run()
 
-        # TODO: There is a bug which enforces the sample num to be the bath size.
         sample_z = np.random.uniform(-1, 1, size=(self.model.sample_num, self.model.z_dim))
         _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
                                                                          randint(0, self.dataset.test.num_examples), 1)
@@ -135,9 +134,15 @@ class GanClsTrainer(object):
                                                             self.model.phi_sample: sample_embed,
                                                           })
                         save_images(samples, image_manifold_size(samples.shape[0]),
-                                    './{}/{}/train_{:02d}_{:04d}.png'.format(self.config.sample_dir, 'GANCLS', epoch,
+                                    './{}2/{}/train_{:02d}_{:04d}.png'.format(self.config.sample_dir, 'GANCLS', epoch,
                                                                              idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
+
+                        # Display the captions of the sampled images
+                        print('\nCaptions of the sampled images:')
+                        for caption_idx, caption_batch in enumerate(captions):
+                            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
+                        print()
                     except Exception as excep:
                         print("one pic error!...")
                         print(excep)
