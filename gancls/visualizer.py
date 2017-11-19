@@ -1,7 +1,7 @@
 from random import randint
 
 from gancls.model import GanCls
-from gancls.utils import load, save_images, image_manifold_size
+from gancls.utils import load, save_images, image_manifold_size, visualize
 from preprocess.dataset import TextDataset
 import tensorflow as tf
 import numpy as np
@@ -36,4 +36,7 @@ class GanClsVisualizer(object):
                                 })
         save_images(samples, image_manifold_size(samples.shape[0]),
                     './{}/{}/{}/test.png'.format(self.config.test_dir, self.model.name, self.dataset.name))
+
+        visualize(self.sess, self.model, self.config, 4)
+
 
