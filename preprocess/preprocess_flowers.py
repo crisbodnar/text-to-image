@@ -1,13 +1,7 @@
-import numpy as np
 import os
 import pickle
 from preprocess.utils import get_image
 import scipy.misc
-
-# from glob import glob
-
-# TODO: 1. current label is temporary, need to change according to real label
-#       2. Current, only split the data into train, need to handel train, test
 
 LR_HR_RETIO = 4
 IMSIZE = 256
@@ -52,12 +46,12 @@ def save_data_list(inpath, outpath, filenames):
 
 
 def convert_flowers_dataset_pickle(inpath):
-    # ## For Train data
+    # For Train data
     train_dir = os.path.join(inpath, 'train/')
     train_filenames = load_filenames(train_dir)
     save_data_list(inpath, train_dir, train_filenames)
 
-    # ## For Test data
+    # For Test data
     test_dir = os.path.join(inpath, 'test/')
     test_filenames = load_filenames(test_dir)
     save_data_list(inpath, test_dir, test_filenames)
