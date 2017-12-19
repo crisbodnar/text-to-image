@@ -2,33 +2,37 @@ from tqdm import tqdm
 import requests
 import os
 import tarfile
+from urllib import parse
 
 FLOWERS_DATASET_URL = 'http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz'
-FLOWERS_DATASET_TAR_PATH = './data/flowers.tgz'
-FLOWERS_DATASET_PATH = './data'
+FLOWERS_DIR = './data/flowers/'
 
 
-def download_dataset():
-    response = requests.get(FLOWERS_DATASET_URL, stream=True)
+def download_and_untar(url: str, extract_dir, delete_tar=True):
+    response = requests.get(url, stream=True)
     response_size = int(response.headers.get('content-length', 0))
 
-    if not os.path.exists(os.path.dirname(FLOWERS_DATASET_TAR_PATH)):
-        os.makedirs(os.path.dirname(FLOWERS_DATASET_TAR_PATH))
+    if not os.path.exists(extract_dir):
+        os.makedirs(extract_dir)
 
-    print('Downloading the dataset...')
-    with open(FLOWERS_DATASET_TAR_PATH, 'wb') as file:
-        for data in tqdm(response.iter_content(32*1024), total=response_size, unit='B', unit_scale=True, miniters=1):
+    filename = parse.urlsplit(url).path.split('/')[-1]
+
+    print('Downloading %s ...' % filename)
+    with open(os.path.join(extract_dir, filename), 'wb') as file:
+        for data in tqdm(response.iter_content(), total=response_size, unit='B', unit_scale=True, miniters=1):
             file.write(data)
 
+    print('Unzipping %s ...' % filename)
+    tar = tarfile.open(os.path.join(extract_dir, filename))
+    tar.extractall()
+    tar.close()
 
-def untar_dataset():
-    with tarfile.open(FLOWERS_DATASET_TAR_PATH) as tar:
-        tar.extractall()
+    if delete_tar:
+        os.remove(os.path.join(extract_dir, filename))
 
 
 def main():
-    download_dataset()
-    untar_dataset()
+    download_and_untar(FLOWERS_DATASET_URL, FLOWERS_DIR)
 
 
 if __name__ == '__main__':
