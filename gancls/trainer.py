@@ -61,7 +61,7 @@ class GanClsTrainer(object):
         self.G_merged_summ = tf.summary.merge([self.z_sum, self.G_summ])
         self.D_merged_summ = tf.summary.merge([self.z_sum, self.D_real_mismatch_summ,
                                                self.D_real_match_summ, self.D_synthetic_summ])
-        self.writer = tf.summary.FileWriter("./logs", self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.config.logs_dir, self.sess.graph)
 
     def train(self):
         self.define_losses()
@@ -135,7 +135,7 @@ class GanClsTrainer(object):
                                                           })
                         save_images(samples, image_manifold_size(samples.shape[0]),
                                     './{}2/{}/train_{:02d}_{:04d}.png'.format(self.config.sample_dir, 'GANCLS', epoch,
-                                                                             idx))
+                                                                              idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 
                         # Display the captions of the sampled images

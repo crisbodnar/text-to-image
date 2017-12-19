@@ -1,12 +1,7 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import numpy as np
 import os
 import pickle
-from utils import get_image
+from preprocess.utils import get_image
 import scipy.misc
 
 # from glob import glob
