@@ -1,7 +1,8 @@
 from random import randint
 
 from gancls.model import GanCls
-from utils.utils import load, save_images, image_manifold_size
+from utils.utils import save_images, image_manifold_size
+from utils.saver import load
 from preprocess.dataset import TextDataset
 from preprocess.utils import closest_image
 import tensorflow as tf
@@ -17,7 +18,7 @@ class GanClsVisualizer(object):
         self.config = config
         self.saver = tf.train.Saver()
 
-        could_load, _ = load(model.directory, self.config.checkpoint_dir, sess, self.saver)
+        could_load, _ = load(self.saver, self.sess, self.config.checkpoint_dir)
         if could_load:
             print(" [*] Load SUCCESS")
         else:
