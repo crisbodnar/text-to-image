@@ -3,6 +3,7 @@ from random import randint
 from gancls.model import GanCls
 from gancls.utils import load, save_images, image_manifold_size, visualize
 from preprocess.dataset import TextDataset
+from preprocess.utils import closest_image
 import tensorflow as tf
 import numpy as np
 
@@ -35,9 +36,14 @@ class GanClsVisualizer(object):
                                     self.model.z_sample: sample_z,
                                     self.model.phi_sample: sample_embed,
                                 })
-        save_images(samples, image_manifold_size(samples.shape[0]),
-                    './{}/{}/{}/test.png'.format(self.config.test_dir, self.model.name, self.dataset.name))
 
-        visualize(self.sess, self.model, self.config, 5)
+        fake_img = samples[0]
+        closest_img = closest_image(fake_img, self.dataset)
+        closest_pair = np.array([fake_img, closest_img])
+
+        save_images(closest_pair, image_manifold_size(closest_pair.shape[0]),
+                    './{}/{}/{}/test5.png'.format(self.config.test_dir, self.model.name, self.dataset.name))
+
+        # visualize(self.sess, self.model, self.config, 5)
 
 

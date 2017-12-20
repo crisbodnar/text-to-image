@@ -10,6 +10,8 @@ import tensorflow as tf
 import scipy.misc
 import os
 import errno
+from preprocess.dataset import TextDataset
+from scipy.spatial import distance
 
 
 def get_image(image_path, image_size, is_crop=False, bbox=None):
@@ -75,4 +77,17 @@ def mkdir_p(path):
             raise
 
 
+def closest_image(fake_img, dataset: TextDataset):
+    min_distance = float('inf')
+    closest_img = None
+    for idx in range(dataset.train.num_examples):
+        imgs, _, _, captions = dataset.train.next_batch_test(1, idx, 1)
+        real_img = imgs[0]
+        # caption = captions[0]
+
+        dist = np.linalg.norm(fake_img - real_img)
+        if min_distance > dist:
+            min_distance = dist
+            closest_img = real_img
+    return closest_img
 

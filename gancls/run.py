@@ -44,7 +44,7 @@ def main(_):
     dataset = TextDataset(datadir, embedding_type, 1)
 
     filename_test = '%s/test' % datadir
-    dataset.test = dataset.get_data(filename_test)
+    dataset._test = dataset.get_data(filename_test)
 
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
