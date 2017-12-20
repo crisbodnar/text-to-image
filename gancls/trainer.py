@@ -116,11 +116,6 @@ class GanClsTrainer(object):
                                                       feed_dict={self.model.z: batch_z, self.model.phi_inputs: embed})
                 self.writer.add_summary(summary_str, counter)
 
-                # # Run G_optim twice to make sure that d_loss does not go to zero (different from paper)
-                # _, err_g, summary_str = self.sess.run([G_optim, self.G_loss, self.G_merged_summ],
-                #                                       feed_dict={self.z: batch_z, self.phi_inputs: embed})
-                # self.writer.add_summary(summary_str, counter)
-
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
                       % (epoch, idx, updates_per_epoch,
