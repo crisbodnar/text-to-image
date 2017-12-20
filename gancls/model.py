@@ -73,26 +73,24 @@ class GanCls(object):
             net_ho = tf.layers.conv2d(inputs=inputs, filters=self.df_dim, kernel_size=(4, 4), strides=(2, 2),
                                       padding='same', activation=lambda x: lrelu(x, 0.2), kernel_initializer=w_init,
                                       name='d_ho/conv2d')
-
             net_h1 = tf.layers.conv2d(inputs=net_ho, filters=self.df_dim * 2, kernel_size=(4, 4), strides=(2, 2),
                                       padding='same', activation=None, kernel_initializer=w_init,
                                       name='d_h1/conv2d')
             net_h1 = batch_normalization(net_h1, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h1/batch_norm')
-
             net_h2 = tf.layers.conv2d(inputs=net_h1, filters=self.df_dim * 4, kernel_size=(4, 4), strides=(2, 2),
                                       padding='same', activation=None, kernel_initializer=w_init,
                                       name='d_h2/conv2d')
             net_h2 = batch_normalization(net_h2, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h2/batch_norm')
-
             net_h3 = tf.layers.conv2d(inputs=net_h2, filters=self.df_dim * 8, kernel_size=(4, 4), strides=(2, 2),
                                       padding='same', activation=None, kernel_initializer=w_init,
                                       name='d_h3/conv2d')
             net_h3 = batch_normalization(net_h3, is_training=is_training, initializer=gamma_init,
                                          activation=lambda x: lrelu(x, 0.2), name='d_h3/batch_norm')
+            # --------------------------------------------------------
 
-            # Reduction in dimensionality
+            # Residual layer
             net = tf.layers.conv2d(inputs=net_h3, filters=self.df_dim * 2, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', activation=None, kernel_initializer=w_init,
                                    name='d_h4_res/conv2d')
@@ -110,6 +108,7 @@ class GanCls(object):
                                       activation=lambda x: lrelu(x, 0.2), name='d_h4_res/batch_norm3')
             net_h4 = tf.add(net_h3, net, name='d_h4/add')
             net_h4 = lrelu(net_h4, 0.2, name='d_h4/add_lrelu')
+            # --------------------------------------------------------
 
             # Append embeddings in depth
             net_embed = tf.layers.dense(inputs=phi, units=self.compressed_embed_dim, activation=lambda x: lrelu(x, 0.2),
@@ -117,7 +116,6 @@ class GanCls(object):
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3, name='d_h4_concat')
 
-            # --------------------------------------------------------
             net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
                                       padding='valid', activation=None, kernel_initializer=w_init,
                                       name='d_h4_concat/conv2d')
@@ -146,6 +144,7 @@ class GanCls(object):
                                      kernel_initializer=w_init, name='g_h0/dense')
             net_h0 = batch_normalization(net_h0, is_training=is_training, initializer=gamma_init,
                                          activation=tf.identity, name='g_ho/batch_norm')
+            # --------------------------------------------------------
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
             if sampler:
@@ -153,6 +152,7 @@ class GanCls(object):
             else:
                 net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1], name='g_ho/reshape')
 
+            # Residual layer
             net = tf.layers.conv2d(inputs=net_h0, filters=self.gf_dim * 2, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', activation=None, kernel_initializer=w_init,
                                    name='g_h1_res/conv2d')
@@ -170,6 +170,7 @@ class GanCls(object):
                                       activation=None, name='g_h1_res/batch_norm3')
             net_h1 = tf.add(net_h0, net, name='g_h1/add')
             net_h1 = tf.nn.relu(net_h1, name='g_h1/add_lrelu')
+            # --------------------------------------------------------
 
             net_h2 = tf.layers.conv2d_transpose(net_h1, filters=self.gf_dim*4, kernel_size=(4, 4), strides=(2, 2),
                                                 padding='same', activation=None, kernel_initializer=w_init,
@@ -179,7 +180,9 @@ class GanCls(object):
                                       name='g_h2/conv2d')
             net_h2 = batch_normalization(net_h2, is_training=is_training, initializer=gamma_init,
                                          activation=None, name='g_h2/batch_norm')
+            # --------------------------------------------------------
 
+            # Residual layer
             net = tf.layers.conv2d(inputs=net_h2, filters=self.gf_dim, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', activation=None, kernel_initializer=w_init,
                                    name='g_h3_res/conv2d')
@@ -197,6 +200,7 @@ class GanCls(object):
                                       activation=None, name='g_h3_res/batch_norm3')
             net_h3 = tf.add(net_h2, net, name='g_h3/add')
             net_h3 = tf.nn.relu(net_h3, name='g_h3/add_lrelu')
+            # --------------------------------------------------------
 
             net_h4 = tf.layers.conv2d_transpose(net_h3, filters=self.gf_dim*2, kernel_size=(4, 4), strides=(2, 2),
                                                 padding='same', activation=None, kernel_initializer=w_init,

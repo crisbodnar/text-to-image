@@ -54,6 +54,7 @@ class GanClsTrainer(object):
         self.D_real_mismatch_summ = tf.summary.histogram('d_real_mismatch_sum', self.model.D_real_mismatch)
         self.G_summ = tf.summary.image("g_sum", self.model.G)
         self.z_sum = tf.summary.histogram("z", self.model.z)
+
         self.D_synthetic_loss_summ = tf.summary.histogram('d_synthetic_sum_loss', self.D_synthetic_loss)
         self.D_real_match_loss_summ = tf.summary.histogram('d_real_match_sum_loss', self.D_real_match_loss)
         self.D_real_mismatch_loss_summ = tf.summary.histogram('d_real_mismatch_sum_loss', self.D_real_mismatch_loss)
