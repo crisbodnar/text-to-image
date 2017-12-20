@@ -2,11 +2,11 @@ from random import randint
 
 import tensorflow as tf
 from gancls.model import GanCls
-from gancls.utils import save_images, image_manifold_size, load
+from utils.utils import save_images, image_manifold_size
+from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
 import time
-import os
 
 
 class GanClsTrainer(object):
@@ -41,7 +41,7 @@ class GanClsTrainer(object):
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(max_to_keep=1)
 
         self.D_optim = tf.train.AdamOptimizer(self.config.learning_rate, beta1=self.config.beta1) \
             .minimize(self.D_loss, var_list=self.d_vars)
@@ -92,7 +92,7 @@ class GanClsTrainer(object):
 
         counter = 1
         start_time = time.time()
-        could_load, checkpoint_counter = load(self.model.directory, self.config.checkpoint_dir, self.sess, self.saver)
+        could_load, checkpoint_counter = load(self.saver, self.sess, self.config.checkpoint_dir)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
@@ -152,14 +152,4 @@ class GanClsTrainer(object):
                         print(excep)
 
                 if np.mod(counter, 500) == 2:
-                    self.save(self.config.checkpoint_dir, counter)
-
-    def save(self, checkpoint_dir, step):
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model.directory)
-
-        if not os.path.exists(checkpoint_dir):
-            os.makedirs(checkpoint_dir)
-
-        self.saver.save(self.sess,
-                        os.path.join(checkpoint_dir, self.model.name),
-                        global_step=step)
+                    save(self.saver, self.sess, self.config.checkpoint_dir, counter)

@@ -1,7 +1,7 @@
 from __future__ import division
 
-from gancls.ops import *
-from gancls.utils import *
+from utils.ops import *
+from utils.utils import *
 from preprocess.dataset import TextDataset
 
 
@@ -150,7 +150,7 @@ class GanCls(object):
             net_h0 = tf.layers.dense(net_input, units=self.gf_dim*8*s16*s16, activation=None,
                                      kernel_initializer=w_init, name='g_h0/dense')
             net_h0 = batch_normalization(net_h0, is_training=is_training, initializer=batch_norm_init,
-                                         activation=tf.identity, name='g_ho/batch_norm')
+                                         activation=None, name='g_ho/batch_norm')
             # --------------------------------------------------------
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).

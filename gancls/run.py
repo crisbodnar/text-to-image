@@ -4,7 +4,7 @@ import numpy as np
 from gancls.model import GanCls
 from gancls.trainer import GanClsTrainer
 from gancls.visualizer import GanClsVisualizer
-from gancls.utils import pp, show_all_variables
+from utils.utils import pp, show_all_variables
 from preprocess.dataset import TextDataset
 
 import tensorflow as tf
@@ -18,7 +18,7 @@ flags.DEFINE_integer('batch_size', 64, 'The size of batch images [64]')
 flags.DEFINE_integer('output_size', 64, 'The size of the output images to produce [64]')
 flags.DEFINE_integer('sample_num', 64, 'Number of samples to generate [64]')
 flags.DEFINE_string('dataset', 'flowers', 'The name of dataset [celebA, mnist, lsun]')
-flags.DEFINE_string('checkpoint_dir', 'checkpoint', 'Directory name to save the checkpoints [checkpoint]')
+flags.DEFINE_string('checkpoint_dir', 'checkpoints/GAN_CLS', 'Directory name to save the checkpoints [checkpoints]')
 flags.DEFINE_string('sample_dir', 'samples', 'Directory name to save the image samples [samples]')
 flags.DEFINE_string('test_dir', 'visualisation', 'Directory name to save the image samples [visualisation]')
 flags.DEFINE_boolean('train', False, 'True for training, False for testing [False]')

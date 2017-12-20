@@ -1,7 +1,7 @@
 from random import randint
 
 from gancls.model import GanCls
-from gancls.utils import load, save_images, image_manifold_size, visualize
+from utils.utils import load, save_images, image_manifold_size
 from preprocess.dataset import TextDataset
 from preprocess.utils import closest_image
 import tensorflow as tf
@@ -22,7 +22,7 @@ class GanClsVisualizer(object):
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-            raise LookupError('Could not load any checkpoint')
+            raise LookupError('Could not load any checkpoints')
 
     def visualize(self):
         # TODO: Solve bug with the generator which generates unmatched images.

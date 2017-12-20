@@ -293,20 +293,3 @@ def image_manifold_size(num_images):
     manifold_w = int(np.ceil(np.sqrt(num_images)))
     assert manifold_h * manifold_w == num_images
     return manifold_h, manifold_w
-
-
-def load(model_dir: str, checkpoint_dir: str, sess: tf.Session, saver: tf.train.Saver):
-    import re
-    print(" [*] Reading checkpoints...")
-    checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
-
-    ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-    if ckpt and ckpt.model_checkpoint_path:
-        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-        saver.restore(sess, os.path.join(checkpoint_dir, ckpt_name))
-        counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
-        print(" [*] Success to read {}".format(ckpt_name))
-        return True, counter
-    else:
-        print(" [*] Failed to find a checkpoint")
-        return False, 0
