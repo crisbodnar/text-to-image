@@ -1,7 +1,19 @@
 import tensorflow as tf
 
 
-def batch_normalization(x, is_training, initializer, activation, name):
+def batch_normalization(x, is_training, initializers, activation, name):
+    """
+    A batch normalization layer with input x
+
+    Parameters:
+        x: Input tensor
+        is_training: True if this layer is currently used during training (false for testing)
+        initializers: A dictionary which can contain the keys "gamma" and "beta" specifying the gamma and beta
+                      initializers
+        activation: The activation function of the layer
+        name: Name of the layer
+    """
+
     with tf.variable_scope(name):
         epsilon = 1e-5
         momentum = 0.9
@@ -9,6 +21,7 @@ def batch_normalization(x, is_training, initializer, activation, name):
                                              decay=momentum,
                                              epsilon=epsilon,
                                              scale=True,
+                                             param_initializers=initializers,
                                              is_training=is_training,
                                              scope=name,
                                              updates_collections=None)
