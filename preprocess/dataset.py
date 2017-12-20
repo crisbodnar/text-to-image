@@ -205,8 +205,9 @@ class TextDataset(object):
         self.image_shape = [lr_imsize * self.hr_lr_ratio, lr_imsize * self.hr_lr_ratio, 3]
         self.image_dim = self.image_shape[0] * self.image_shape[1] * 3
         self.embedding_shape = None
-        self.train = None
-        self.test = None
+
+        self._train = None
+        self._test = None
         self.workdir = workdir
         self._dataset_name = os.path.basename(os.path.normpath(workdir))
 
@@ -215,7 +216,23 @@ class TextDataset(object):
         elif embedding_type == 'skip-thought':
             self.embedding_filename = '/skip-thought-embeddings.pickle'
 
-    def get_data(self, pickle_path, aug_flag=True):
+    @property
+    def train(self) -> Dataset:
+        return self._train
+
+    @train.setter
+    def train(self, train):
+        self._train = train
+
+    @property
+    def test(self) -> Dataset:
+        return self._test
+
+    @test.setter
+    def test(self, test):
+        self._train = test
+
+    def get_data(self, pickle_path, aug_flag=True) -> Dataset:
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)

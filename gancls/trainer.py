@@ -30,10 +30,6 @@ class GanClsTrainer(object):
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_synthetic_logits,
                                                     labels=tf.ones_like(self.model.D_synthetic)))
 
-        self.D_synthetic_loss_summ = tf.summary.histogram('d_synthetic_sum_loss', self.D_synthetic_loss)
-        self.D_real_match_loss_summ = tf.summary.histogram('d_real_match_sum_loss', self.D_real_match_loss)
-        self.D_real_mismatch_loss_summ = tf.summary.histogram('d_real_mismatch_sum_loss', self.D_real_mismatch_loss)
-
         alpha = 0.5
         self.D_loss = self.D_real_match_loss + alpha * self.D_real_mismatch_loss + (1.0 - alpha) * self.D_synthetic_loss
 
@@ -58,9 +54,21 @@ class GanClsTrainer(object):
         self.D_real_mismatch_summ = tf.summary.histogram('d_real_mismatch_sum', self.model.D_real_mismatch)
         self.G_summ = tf.summary.image("g_sum", self.model.G)
         self.z_sum = tf.summary.histogram("z", self.model.z)
-        self.G_merged_summ = tf.summary.merge([self.z_sum, self.G_summ])
-        self.D_merged_summ = tf.summary.merge([self.z_sum, self.D_real_mismatch_summ,
-                                               self.D_real_match_summ, self.D_synthetic_summ])
+        self.D_synthetic_loss_summ = tf.summary.histogram('d_synthetic_sum_loss', self.D_synthetic_loss)
+        self.D_real_match_loss_summ = tf.summary.histogram('d_real_match_sum_loss', self.D_real_match_loss)
+        self.D_real_mismatch_loss_summ = tf.summary.histogram('d_real_mismatch_sum_loss', self.D_real_mismatch_loss)
+        self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
+        self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
+
+        self.G_merged_summ = tf.summary.merge([self.G_summ, self.G_loss_summ])
+        self.D_merged_summ = tf.summary.merge([self.D_real_mismatch_summ,
+                                               self.D_real_match_summ,
+                                               self.D_synthetic_summ,
+                                               self.D_synthetic_loss_summ,
+                                               self.D_real_mismatch_loss_summ,
+                                               self.D_real_match_loss_summ,
+                                               self.D_loss_summ])
+
         self.writer = tf.summary.FileWriter("./logs", self.sess.graph)
 
     def train(self):
@@ -135,7 +143,7 @@ class GanClsTrainer(object):
                                                           })
                         save_images(samples, image_manifold_size(samples.shape[0]),
                                     './{}2/{}/train_{:02d}_{:04d}.png'.format(self.config.sample_dir, 'GANCLS', epoch,
-                                                                             idx))
+                                                                              idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 
                         # Display the captions of the sampled images

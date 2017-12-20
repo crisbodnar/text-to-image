@@ -10,10 +10,10 @@ from preprocess.dataset import TextDataset
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 600, "Epoch to train [600]")
+flags.DEFINE_integer("epoch", 600, "Epoch to _train [600]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+flags.DEFINE_integer("train_size", np.inf, "The size of _train images [np.inf]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
 flags.DEFINE_integer("output_size", 64, "The size of the output images to produce [64]")
 flags.DEFINE_integer("sample_num", 64, "Number of samples to generate [64]")
@@ -42,7 +42,7 @@ def main(_):
     dataset = TextDataset(datadir, embedding_type, 1)
 
     filename_test = '%s/test' % datadir
-    dataset.test = dataset.get_data(filename_test)
+    dataset._test = dataset.get_data(filename_test)
 
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
