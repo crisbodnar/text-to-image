@@ -20,3 +20,5 @@ root directory of the project.
 - scipy
 - numpy
 - pillow
+- easydict
+- imageio

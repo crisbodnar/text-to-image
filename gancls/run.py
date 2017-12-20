@@ -34,7 +34,7 @@ def main(_):
     if not os.path.exists(FLAGS.sample_dir):
         os.makedirs(FLAGS.sample_dir)
     if not os.path.exists(FLAGS.logs_dir):
-        os.makedirs(FLAGS.logs_gir)
+        os.makedirs(FLAGS.logs_dir)
 
     run_config = tf.ConfigProto()
     run_config.gpu_options.allow_growth = True
