@@ -21,12 +21,13 @@ MODEL:
 TRAIN:
   FLAG: True
   BATCH_SIZE: 64 # Size of the training batches
-  SAMPLE_NUM: 10 # The number of samples to be generated during training/testing by the sampler network
-  EPOCH: 600
-  D_LR: 0.0002
-  D_BETA_DECAY: 0.5
-  G_LR: 0.0002
-  G_BETA_DECAY: 0.5
+  SAMPLE_NUM: 9 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
+  EPOCH: 600 # The number of epochs to train.
+  D_LR: 0.0002 # Discriminator learning rate
+  D_BETA_DECAY: 0.5 # Discriminator beta decay in AdamOptimiser
+  G_LR: 0.0002 # Generator learning rate
+  G_BETA_DECAY: 0.5 # Generator beta decay in AdamOptimiser
   NUM_EMBEDDINGS: 4
+  CHECKPOINTS_TO_KEEP: 3
   COEFF:
     ALPHA_MISMATCH_LOSS: 0.5

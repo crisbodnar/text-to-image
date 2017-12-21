@@ -41,7 +41,7 @@ class GanClsTrainer(object):
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver(max_to_keep=1)
+        self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
         self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
             .minimize(self.D_loss, var_list=self.d_vars)
@@ -130,7 +130,7 @@ class GanClsTrainer(object):
                       % (epoch, idx, updates_per_epoch,
                          time.time() - start_time, err_d, err_g))
 
-                if np.mod(counter, 100) == 1:
+                if np.mod(counter, 100) == 0:
                     try:
                         samples = self.sess.run(self.model.sampler,
                                                 feed_dict={
