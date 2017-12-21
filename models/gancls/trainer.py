@@ -1,7 +1,7 @@
 from random import randint
 
 import tensorflow as tf
-from gancls.model import GanCls
+from models.gancls.model import GanCls
 from utils.utils import save_images, image_manifold_size
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
@@ -105,7 +105,6 @@ class GanClsTrainer(object):
 
             for idx in range(0, updates_per_epoch):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
-
                 batch_z = np.random.uniform(-1, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
 
                 # Update D network

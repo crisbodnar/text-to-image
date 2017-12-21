@@ -1,8 +1,5 @@
-from __future__ import division
-
 from utils.ops import *
 from utils.utils import *
-from preprocess.dataset import TextDataset
 
 
 class GanCls(object):
@@ -221,6 +218,3 @@ class GanCls(object):
             net_output = tf.nn.tanh(net_logits)
             return net_output
 
-    @property
-    def directory(self):
-        return "{}/{}_{}_{}".format(self.name, self.dataset.name, self.batch_size, self.output_size)

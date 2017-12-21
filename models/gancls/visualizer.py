@@ -1,6 +1,6 @@
 from random import randint
 
-from gancls.model import GanCls
+from models.gancls.model import GanCls
 from utils.utils import save_images, image_manifold_size
 from utils.saver import load
 from preprocess.dataset import TextDataset

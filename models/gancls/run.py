@@ -1,8 +1,8 @@
 import os
 
-from gancls.model import GanCls
-from gancls.trainer import GanClsTrainer
-from gancls.visualizer import GanClsVisualizer
+from models.gancls.model import GanCls
+from models.gancls.trainer import GanClsTrainer
+from models.gancls import GanClsVisualizer
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset

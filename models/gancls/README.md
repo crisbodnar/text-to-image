@@ -2,7 +2,7 @@
 
 Tensorflow implementation of GAN-CLS for Generative Adversarial Text to Image Synthesis
 
-![alt tag](./images/GANCLS_flowers.png)
+![alt tag](images/GANCLS_flowers.png)
 
 ## Prerequisites
 
