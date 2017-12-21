@@ -190,7 +190,7 @@ class Dataset(object):
 
 
 class TextDataset(object):
-    def __init__(self, workdir, embedding_type, hr_lr_ratio):
+    def __init__(self, workdir, hr_lr_ratio):
         lr_imsize = 64
         self.hr_lr_ratio = hr_lr_ratio
         if self.hr_lr_ratio == 1:
@@ -207,10 +207,7 @@ class TextDataset(object):
         self.workdir = workdir
         self._dataset_name = os.path.basename(os.path.normpath(workdir))
 
-        if embedding_type == 'cnn-rnn':
-            self.embedding_filename = '/char-CNN-RNN-embeddings.pickle'
-        elif embedding_type == 'skip-thought':
-            self.embedding_filename = '/skip-thought-embeddings.pickle'
+        self.embedding_filename = '/char-CNN-RNN-embeddings.pickle'
 
     @property
     def train(self) -> Dataset:

@@ -22,3 +22,5 @@ root directory of the project.
 - pillow
 - easydict
 - imageio
+- pyyaml
+

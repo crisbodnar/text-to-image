@@ -10,11 +10,11 @@ import time
 
 
 class GanClsTrainer(object):
-    def __init__(self, sess: tf.Session, model: GanCls, dataset: TextDataset, config):
+    def __init__(self, sess: tf.Session, model: GanCls, dataset: TextDataset, cfg):
         self.sess = sess
         self.model = model
         self.dataset = dataset
-        self.config = config
+        self.cfg = cfg
 
     def define_losses(self):
         self.D_synthetic_loss = tf.reduce_mean(
@@ -30,7 +30,7 @@ class GanClsTrainer(object):
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_synthetic_logits,
                                                     labels=tf.ones_like(self.model.D_synthetic)))
 
-        alpha = 0.5
+        alpha = self.cfg.TRAIN.COEFF.ALPHA_MISMATCH_LOSS
         self.D_loss = self.D_real_match_loss + alpha * self.D_real_mismatch_loss + (1.0 - alpha) * self.D_synthetic_loss
 
         self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
@@ -43,9 +43,9 @@ class GanClsTrainer(object):
 
         self.saver = tf.train.Saver(max_to_keep=1)
 
-        self.D_optim = tf.train.AdamOptimizer(self.config.learning_rate, beta1=self.config.beta1) \
+        self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
             .minimize(self.D_loss, var_list=self.d_vars)
-        self.G_optim = tf.train.AdamOptimizer(self.config.learning_rate, beta1=self.config.beta1) \
+        self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
             .minimize(self.G_loss, var_list=self.g_vars)
 
     def define_summaries(self):
@@ -70,7 +70,7 @@ class GanClsTrainer(object):
                                                self.D_real_match_loss_summ,
                                                self.D_loss_summ])
 
-        self.writer = tf.summary.FileWriter("./logs", self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
 
     def train(self):
         self.define_losses()
@@ -92,21 +92,21 @@ class GanClsTrainer(object):
 
         counter = 1
         start_time = time.time()
-        could_load, checkpoint_counter = load(self.saver, self.sess, self.config.checkpoint_dir)
+        could_load, checkpoint_counter = load(self.saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
 
-        for epoch in range(self.config.epoch):
+        for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size
             updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
 
             for idx in range(0, updates_per_epoch):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
 
-                batch_z = np.random.uniform(-1, 1, [self.config.batch_size, self.model.z_dim]).astype(np.float32)
+                batch_z = np.random.uniform(-1, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
 
                 # Update D network
                 _, err_d_real_match, err_d_real_mismatch, err_d_fake, err_d, summary_str = self.sess.run(
@@ -138,7 +138,7 @@ class GanClsTrainer(object):
                                                             self.model.phi_sample: sample_embed,
                                                           })
                         save_images(samples, image_manifold_size(samples.shape[0]),
-                                    './{}2/{}/train_{:02d}_{:04d}.png'.format(self.config.sample_dir, 'GANCLS', epoch,
+                                    './{}2/{}/train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, 'GANCLS', epoch,
                                                                               idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 
@@ -152,4 +152,4 @@ class GanClsTrainer(object):
                         print(excep)
 
                 if np.mod(counter, 500) == 2:
-                    save(self.saver, self.sess, self.config.checkpoint_dir, counter)
+                    save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)

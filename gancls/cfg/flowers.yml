@@ -1,0 +1,32 @@
+CONFIG_NAME: 'GAN-CLS'
+DATASET_NAME: 'flowers'
+
+DATASET_DIR: './data/flowers/'
+CHECKPOINT_DIR: './checkpoints/GAN-CLS/flowers/'
+LOGS_DIR: '/tmp/gancls_logs/'
+SAMPLE_DIR: './samples/GAN-CLS/flowers/'
+
+MODEL:
+  Z_DIM: 100 # Dimension of the noise vector
+  OUTPUT_SIZE: 64 # The ouput size of the image (e.g 64x64)
+  EMBED_DIM: 1024 # The dimension of the embedding before compression (as given by the cnn-rnn encoder)
+  COMPRESSED_EMBED_DIM: 128 # The dimension of the embedding after compression
+  GF_DIM: 128 # The number of filters in the first convolutional layer of the generator
+  DF_DIM: 64 # The number of filters in the first convolutional layer of the discriminator
+  IMAGE_SHAPE:
+    W: 64
+    H: 64
+    D: 3
+
+TRAIN:
+  FLAG: True
+  BATCH_SIZE: 64 # Size of the training batches
+  SAMPLE_NUM: 10 # The number of samples to be generated during training/testing by the sampler network
+  EPOCH: 600
+  D_LR: 0.0002
+  D_BETA_DECAY: 0.5
+  G_LR: 0.0002
+  G_BETA_DECAY: 0.5
+  NUM_EMBEDDINGS: 4
+  COEFF:
+    ALPHA_MISMATCH_LOSS: 0.5
