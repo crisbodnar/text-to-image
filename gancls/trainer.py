@@ -147,9 +147,11 @@ class GanClsTrainer(object):
                         for caption_idx, caption_batch in enumerate(captions):
                             print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
                         print()
-                    except Exception as excep:
-                        print("one pic error!...")
-                        print(excep)
+                    except Exception as e:
+                        print("Failed to generate sample image")
+                        print(type(e))
+                        print(e.args)
+                        print(e)
 
                 if np.mod(counter, 500) == 2:
                     save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)
