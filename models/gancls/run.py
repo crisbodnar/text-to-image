@@ -2,7 +2,7 @@ import os
 
 from models.gancls.model import GanCls
 from models.gancls.trainer import GanClsTrainer
-from models.gancls import GanClsVisualizer
+from models.gancls.visualizer import GanClsVisualizer
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -10,7 +10,7 @@ from preprocess.dataset import TextDataset
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './gancls/cfg/flowers.yml',
+flags.DEFINE_string('cfg', './models/gancls/cfg/flowers.yml',
                     'Relative path to the config of the model [./gancls/cfg/flowers.yml]')
 FLAGS = flags.FLAGS
 
