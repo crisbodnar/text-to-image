@@ -1,9 +1,7 @@
 # GANCLS in Tensorflow
 
 Tensorflow implementation of [GAN-CLS for Generative Adversarial Text to Image Synthesis](https://arxiv.org/abs/1605.05396)
-using a pre-trained Char-CNN-RNN encoder.
-
-My own implementation of the CNN-RNN encoder will be released in the next few 
+using a pre-trained Char-CNN-RNN encoder. My own implementation of the CNN-RNN encoder will be released in the next few 
 months.
 
 Below is a random sample of images generated from text descriptions by my implementation of the network.
