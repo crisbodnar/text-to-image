@@ -6,11 +6,12 @@ using a pre-trained Char-CNN-RNN encoder.
 My own implementation of the CNN-RNN encoder will be released in the next few 
 months.
 
+Below is a random sample of images generated from text descriptions by my implementation of the network.
 ![alt tag](images/GANCLS_flowers.png)
 
 ### Instructions
 
-Make sure your PYTHONAPTH is pointing to the root directory of the project. For instructions on setting up the
+Make sure your `PYTHONAPTH` is pointing to the root directory of the project. For instructions on setting up the
 dataset, check the main README.
 
 To run the program run the following instruction from the root directory of the project: `python --cfg [path_to_config]`.
