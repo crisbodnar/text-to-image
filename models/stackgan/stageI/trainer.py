@@ -98,7 +98,7 @@ class ConditionalGanTrainer(object):
 
         tf.global_variables_initializer().run()
 
-        sample_z = tf.random_normal([self.model.sample_num, self.model.z_dim])
+        sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
         _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
                                                                          randint(0, self.dataset.test.num_examples), 1)
         sample_embed = np.squeeze(sample_embed, axis=0)
@@ -125,7 +125,7 @@ class ConditionalGanTrainer(object):
 
             for idx in range(0, updates_per_epoch):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
-                batch_z = tf.random_normal([self.model.batch_size, self.model.z_dim])
+                batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
                 # Update D network
                 _, err_d_real_match, err_d_real_mismatch, err_d_fake, err_d, summary_str = self.sess.run(
