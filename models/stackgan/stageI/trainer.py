@@ -29,10 +29,7 @@ class ConditionalGanTrainer(object):
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_real_mismatch_logits,
                                                     labels=tf.zeros_like(self.model.D_real_mismatch)))
 
-        embed_normal_dist = tcd.MultivariateNormalDiag(self.model.embed_mean, tf.exp(self.model.embed_log_sigma))
-        standard_normal_dist = tcd.MultivariateNormalDiag(tf.zeros_like(self.model.embed_mean),
-                                                          tf.ones_like(self.model.embed_log_sigma))
-        self.G_kl_loss = tf.reduce_mean(tcd.kl_divergence(embed_normal_dist, standard_normal_dist))
+        self.G_kl_loss = self.kl_loss(self.model.embed_mean, self.model.embed_log_sigma)
         self.G_gan_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_synthetic_logits,
                                                     labels=tf.ones_like(self.model.D_synthetic)))
@@ -58,6 +55,11 @@ class ConditionalGanTrainer(object):
             .minimize(self.D_loss, var_list=self.d_vars)
         self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
             .minimize(self.G_loss, var_list=self.g_vars)
+
+    def kl_loss(self, mean, log_sigma):
+        loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
+        loss = tf.reduce_mean(loss)
+        return loss
 
     def define_summaries(self):
         self.D_synthetic_summ = tf.summary.histogram('d_synthetic_sum', self.model.D_synthetic)
