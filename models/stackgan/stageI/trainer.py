@@ -46,8 +46,8 @@ class ConditionalGanTrainer(object):
 
         t_vars = tf.trainable_variables()
 
-        self.d_vars = [var for var in t_vars if 'd_' in var.name]
-        self.g_vars = [var for var in t_vars if 'g_' in var.name]
+        self.d_vars = [var for var in t_vars if 'd_net' in var.name]
+        self.g_vars = [var for var in t_vars if 'g_net' in var.name]
 
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
@@ -96,8 +96,6 @@ class ConditionalGanTrainer(object):
         self.define_losses()
         self.define_summaries()
 
-        tf.global_variables_initializer().run()
-
         sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
         _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
                                                                          randint(0, self.dataset.test.num_examples), 1)
@@ -118,6 +116,7 @@ class ConditionalGanTrainer(object):
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
+            tf.global_variables_initializer().run()
 
         for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size

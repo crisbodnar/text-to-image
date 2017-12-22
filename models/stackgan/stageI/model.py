@@ -53,7 +53,7 @@ class ConditionalGan(object):
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
-
+        embeddings = tf.layers.flatten(embeddings)
         mean = tf.layers.dense(embeddings, self.compressed_embed_dim, activation=lambda l: tf.nn.leaky_relu(l, 0.2),
                                kernel_initializer=self.w_init)
         log_sigma = tf.layers.dense(embeddings, self.compressed_embed_dim,
