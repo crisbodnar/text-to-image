@@ -137,8 +137,7 @@ class GanClsTrainer(object):
                                                             self.model.phi_sample: sample_embed,
                                                           })
                         save_images(samples, image_manifold_size(samples.shape[0]),
-                                    './{}2/{}/train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, 'GANCLS', epoch,
-                                                                              idx))
+                                    '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 
                         # Display the captions of the sampled images
