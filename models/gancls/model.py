@@ -50,7 +50,7 @@ class GanCls(object):
                                                                                reuse=True)
         self.sampler = self.generator(self.z_sample, self.phi_sample, is_training=False, reuse=True, sampler=True)
 
-    def discriminator(self, inputs, phi, is_training=True, reuse=False):
+    def discriminator(self, inputs, embed, is_training=True, reuse=False):
         s16 = self.output_size / 16
 
         with tf.variable_scope("d_net", reuse=reuse):
@@ -106,13 +106,13 @@ class GanCls(object):
 
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, phi, is_training=True, reuse=False, sampler=False):
+    def generator(self, z, embed, is_training=True, reuse=False, sampler=False):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
         with tf.variable_scope("g_net", reuse=reuse):
             # Compress the embedding and append it to z
-            net_embed = tf.layers.dense(inputs=phi, units=self.compressed_embed_dim, activation=None)
+            net_embed = tf.layers.dense(inputs=embed, units=self.compressed_embed_dim, activation=None)
 
             # Concatenate the sampled embedding with the z vector
             net_input = tf.concat([z, net_embed], 1)
@@ -193,4 +193,3 @@ class GanCls(object):
 
             net_output = tf.nn.tanh(net_logits)
             return net_output
-
