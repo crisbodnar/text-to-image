@@ -1,5 +1,5 @@
-from utils.ops import *
-from utils.utils import *
+import tensorflow as tf
+from utils.ops import batch_normalization
 
 
 class ConditionalGan(object):
@@ -209,4 +209,5 @@ class ConditionalGan(object):
 
             net_output = tf.nn.tanh(net_logits)
             return net_output, mean, log_sigma
+
 
