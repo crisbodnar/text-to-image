@@ -2,9 +2,9 @@ CONFIG_NAME: 'GAN-CLS'
 DATASET_NAME: 'flowers'
 
 DATASET_DIR: './data/flowers/'
-CHECKPOINT_DIR: './checkpoints/GAN-CLS/flowers/'
+CHECKPOINT_DIR: './checkpoints/GAN-CLS2/flowers/'
 LOGS_DIR: '/tmp/gancls_logs/'
-SAMPLE_DIR: './samples/GAN-CLS/flowers/'
+SAMPLE_DIR: './samples/GAN-CLS/flowers2/'
 
 MODEL:
   Z_DIM: 100 # Dimension of the noise vector

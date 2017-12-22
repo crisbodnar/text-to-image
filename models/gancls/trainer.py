@@ -38,8 +38,8 @@ class GanClsTrainer(object):
 
         t_vars = tf.trainable_variables()
 
-        self.d_vars = [var for var in t_vars if 'd_' in var.name]
-        self.g_vars = [var for var in t_vars if 'g_' in var.name]
+        self.d_vars = [var for var in t_vars if 'd_net' in var.name]
+        self.g_vars = [var for var in t_vars if 'g_net' in var.name]
 
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 

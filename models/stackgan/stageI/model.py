@@ -89,7 +89,7 @@ class ConditionalGan(object):
             net = tf.layers.conv2d(inputs=net_h3, filters=self.df_dim * 2, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', activation=None, kernel_initializer=self.w_init)
             net = batch_normalization(net, is_training=is_training, initializers=self.batch_norm_init,
-                                      activation=lambda l: tf.nn.leaky_relu(l, 0.2), name='d_h4_res/batch_norm')
+                                      activation=lambda l: tf.nn.leaky_relu(l, 0.2))
             net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 2, kernel_size=(3, 3), strides=(1, 1),
                                    padding='same', activation=None, kernel_initializer=self.w_init)
             net = batch_normalization(net, is_training=is_training, initializers=self.batch_norm_init,
