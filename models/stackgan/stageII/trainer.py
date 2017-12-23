@@ -2,7 +2,7 @@ from random import randint
 
 import tensorflow as tf
 
-from models.stackgan.stageI.model import ConditionalGan
+from models.stackgan.stageII.model import ConditionalGan
 from utils.utils import save_images, image_manifold_size
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
@@ -43,7 +43,9 @@ class ConditionalGanTrainer(object):
         self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
         self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
 
-        self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
+        self.stagei_g_saver = tf.train.Saver(self.model.stagei_g_vars)
+        self.stageii_saver = tf.train.Saver(var_list=self.model.g_vars + self.model.d_vars,
+                                            max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
         self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
             .minimize(self.D_loss, var_list=self.model.d_vars)
@@ -104,13 +106,22 @@ class ConditionalGanTrainer(object):
 
         counter = 1
         start_time = time.time()
-        could_load, checkpoint_counter = load(self.saver, self.sess, self.cfg.CHECKPOINT_DIR)
+
+        # Try to load the parameters of the stage II networks
+        could_load, checkpoint_counter = load(self.stageii_saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
-            print(" [*] Load SUCCESS")
+            print(" [*] Load SUCCESS: Stage II networks are loaded.")
         else:
-            print(" [!] Load failed...")
+            print(" [!] Load failed for stage II networks...")
             tf.global_variables_initializer().run()
+
+        could_load, checkpoint_counter = load(self.stagei_g_saver, self.sess, self.cfg.CHECKPOINT_DIR)
+        if could_load:
+            counter = checkpoint_counter
+            print(" [*] Load SUCCESS: Stage I generator is loaded")
+        else:
+            print(" [!] WARNING!!! Failed to load the parameters for stage I generator...")
 
         for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size
@@ -165,4 +176,4 @@ class ConditionalGanTrainer(object):
                         print(e)
 
                 if np.mod(counter, 500) == 2:
-                    save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)
+                    save(self.stageii_saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)

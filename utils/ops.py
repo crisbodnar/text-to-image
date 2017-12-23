@@ -1,29 +1,35 @@
 import tensorflow as tf
 
 
-def batch_normalization(x, is_training, initializers, activation, name=None):
+def batch_norm(x, train, init, act=None, name=None, eps=1e-5, decay=0.9):
     """
     A batch normalization layer with input x
 
     Parameters:
         x: Input tensor
-        is_training: True if this layer is currently used during training (false for testing)
-        initializers: A dictionary which can contain the keys "gamma" and "beta" specifying the gamma and beta
-                      initializers
-        activation: The activation function of the layer
+        train: True if this layer is currently used during training (false for testing)
+        init: A dictionary which can contain the keys "gamma" and "beta" specifying the gamma and beta
+                      init
+        act: The activation function of the layer
         name: Name of the layer
     """
 
-    epsilon = 1e-5
-    momentum = 0.9
-    layer = tf.contrib.layers.batch_norm(x,
-                                         decay=momentum,
-                                         epsilon=epsilon,
-                                         scale=True,
-                                         param_initializers=initializers,
-                                         is_training=is_training,
-                                         scope=name,
-                                         updates_collections=None)
-    if activation is not None:
-        return activation(layer)
-    return layer
+    return tf.contrib.layers.batch_norm(x,
+                                        decay=decay,
+                                        epsilon=eps,
+                                        scale=True,
+                                        param_initializers=init,
+                                        is_training=train,
+                                        scope=name,
+                                        activation_fn=act,
+                                        updates_collections=None)
+
+
+def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
+    return tf.layers.conv2d(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
+                            kernel_initializer=init)
+
+
+def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
+    return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
+                                      kernel_initializer=init)
