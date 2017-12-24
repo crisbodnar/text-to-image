@@ -2,5 +2,4 @@
 logs/
 /data/
 /samples/
-*/__pycache__/
 *.pyc
