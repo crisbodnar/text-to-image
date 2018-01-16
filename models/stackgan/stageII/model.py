@@ -47,13 +47,13 @@ class ConditionalGan(object):
         self.embed_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='phi_sample')
 
         stagei_g, _, _ = self.stagei.generator(self.z, self.embed_inputs, reuse=False)
+        stagei_g_sampler, _, _ = self.stagei.generator(self.z_sample, self.embed_sample, reuse=True, sampler=True)
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(stagei_g, self.embed_inputs, reuse=False)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.embed_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.embed_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.embed_inputs,
                                                                                reuse=True)
-        self.sampler, _, _ = self.generator(stagei_g, self.embed_sample, is_training=False, reuse=True,
-                                            sampler=True)
+        self.sampler, _, _ = self.generator(stagei_g_sampler, self.embed_sample, reuse=True, sampler=True)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if var.name.startswith('stageII_d_net')]

@@ -11,11 +11,12 @@ import time
 
 
 class ConditionalGanTrainer(object):
-    def __init__(self, sess: tf.Session, model: ConditionalGan, dataset: TextDataset, cfg):
+    def __init__(self, sess: tf.Session, model: ConditionalGan, dataset: TextDataset, cfg, cfg_stage_i):
         self.sess = sess
         self.model = model
         self.dataset = dataset
         self.cfg = cfg
+        self.cfg_stage_i = cfg_stage_i
 
     def define_losses(self):
         self.D_synthetic_loss = tf.reduce_mean(
@@ -108,15 +109,15 @@ class ConditionalGanTrainer(object):
         start_time = time.time()
 
         # Try to load the parameters of the stage II networks
+        tf.global_variables_initializer().run()
         could_load, checkpoint_counter = load(self.stageii_saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS: Stage II networks are loaded.")
         else:
             print(" [!] Load failed for stage II networks...")
-            tf.global_variables_initializer().run()
 
-        could_load, checkpoint_counter = load(self.stagei_g_saver, self.sess, self.cfg.CHECKPOINT_DIR)
+        could_load, checkpoint_counter = load(self.stagei_g_saver, self.sess, self.cfg_stage_i.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS: Stage I generator is loaded")

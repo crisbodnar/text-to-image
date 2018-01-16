@@ -53,6 +53,7 @@ def main(_):
                 model=stage_ii,
                 dataset=dataset,
                 cfg=cfg,
+                cfg_stage_i=cfg_stage_i,
             )
             stage_ii_trainer.train()
         else:

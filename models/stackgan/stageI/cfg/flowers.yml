@@ -20,8 +20,8 @@ MODEL:
 
 TRAIN:
   FLAG: True
-  BATCH_SIZE: 64 # Size of the training batches
-  SAMPLE_NUM: 9 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
+  BATCH_SIZE: 32 # Size of the training batches
+  SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
   EPOCH: 600 # The number of epochs to train.
   D_LR: 0.0002 # Discriminator learning rate
   D_BETA_DECAY: 0.5 # Discriminator beta decay in AdamOptimiser
