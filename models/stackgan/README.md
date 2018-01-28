@@ -1,7 +1,7 @@
 # Implementation
 
-This implementation is based on the [StackGAN: Text to Photo-realistic Image Synthesis with Stacked Generative Adversarial Networks](https://arxiv.org/abs/1612.03242)
-papers and includes some small variations.
+This is a TensorFlow implementation based on the [StackGAN: Text to Photo-realistic Image Synthesis with Stacked Generative Adversarial Networks](https://arxiv.org/abs/1612.03242)
+papers and includes some small improvements.
 
 ## Usage
 
