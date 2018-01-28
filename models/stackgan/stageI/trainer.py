@@ -104,13 +104,14 @@ class ConditionalGanTrainer(object):
 
         counter = 1
         start_time = time.time()
+        tf.global_variables_initializer().run()
+
         could_load, checkpoint_counter = load(self.saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-            tf.global_variables_initializer().run()
 
         for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size

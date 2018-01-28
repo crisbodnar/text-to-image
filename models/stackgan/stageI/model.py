@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils.ops import batch_norm
+from utils.ops import batch_norm, conv2d, conv2d_transpose
 
 
 class ConditionalGan(object):
@@ -58,11 +58,13 @@ class ConditionalGan(object):
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
+        lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
+
         embeddings = tf.layers.flatten(embeddings)
-        mean = tf.layers.dense(embeddings, self.compressed_embed_dim, activation=lambda l: tf.nn.leaky_relu(l, 0.2),
+        mean = tf.layers.dense(embeddings, self.compressed_embed_dim, activation=lrelu,
                                kernel_initializer=self.w_init)
         log_sigma = tf.layers.dense(embeddings, self.compressed_embed_dim,
-                                    activation=lambda l: tf.nn.leaky_relu(l, 0.2), kernel_initializer=self.w_init)
+                                    activation=lrelu, kernel_initializer=self.w_init)
         return mean, log_sigma
 
     def sample_normal_conditional(self, mean, log_sigma):
@@ -72,56 +74,41 @@ class ConditionalGan(object):
 
     def discriminator(self, inputs, embed, is_training=True, reuse=False):
         s16 = self.output_size / 16
+        lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
+        
         with tf.variable_scope("d_net", reuse=reuse):
-            net_ho = tf.layers.conv2d(inputs=inputs, filters=self.df_dim, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=lambda l: tf.nn.leaky_relu(l, 0.2), 
-                                      kernel_initializer=self.w_init)
-            net_h1 = tf.layers.conv2d(inputs=net_ho, filters=self.df_dim * 2, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h1 = batch_norm(net_h1, train=is_training, init=self.batch_norm_init,
-                                act=lambda l: tf.nn.leaky_relu(l, 0.2))
-            net_h2 = tf.layers.conv2d(inputs=net_h1, filters=self.df_dim * 4, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init,
-                                act=lambda l: tf.nn.leaky_relu(l, 0.2))
-            net_h3 = tf.layers.conv2d(inputs=net_h2, filters=self.df_dim * 8, kernel_size=(4, 4), strides=(2, 2),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h3 = batch_norm(net_h3, train=is_training, init=self.batch_norm_init,
-                                act=None)
+            net_ho = conv2d(inputs, self.df_dim, ks=(4, 4), s=(2, 2), act=lrelu, init=self.w_init)
+            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_h1 = batch_norm(net_h1, train=is_training, init=self.batch_norm_init, act=lrelu)
+            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init, act=lrelu)
+            net_h3 = conv2d(net_h2, self.df_dim * 8, ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_h3 = batch_norm(net_h3, train=is_training, init=self.batch_norm_init)
             # --------------------------------------------------------
 
             # Residual layer
-            net = tf.layers.conv2d(inputs=net_h3, filters=self.df_dim * 2, kernel_size=(1, 1), strides=(1, 1),
-                                   padding='valid', activation=None, kernel_initializer=self.w_init)
+            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
             net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=lambda l: tf.nn.leaky_relu(l, 0.2))
-            net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 2, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=lambda l: tf.nn.leaky_relu(l, 0.2))
-            net = tf.layers.conv2d(inputs=net, filters=self.df_dim * 8, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=None)
+                             act=lrelu)
+            net = conv2d(net, self.df_dim * 2, ks=(3, 3), s=(1, 1), init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=lrelu)
+            net = conv2d(net, self.df_dim * 8, ks=(3, 3), s=(1, 1), init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init)
             net_h4 = tf.add(net_h3, net)
             net_h4 = tf.nn.leaky_relu(net_h4, 0.2)
             # --------------------------------------------------------
 
             # Compress embeddings
-            net_embed = tf.layers.dense(inputs=embed, units=self.compressed_embed_dim,
-                                        activation=lambda l: tf.nn.leaky_relu(l, 0.2))
+            net_embed = tf.layers.dense(embed, units=self.compressed_embed_dim, activation=lrelu)
 
             # Append embeddings in depth
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
-            net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
-                                      padding='valid', activation=None, kernel_initializer=self.w_init)
-            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init,
-                                act=lambda l: tf.nn.leaky_relu(l, 0.2))
+            net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
+            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=lrelu)
 
-            net_logits = tf.layers.conv2d(inputs=net_h4, filters=1, kernel_size=(s16, s16), strides=(s16, s16),
-                                          padding='valid', kernel_initializer=self.w_init)
+            net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.w_init)
 
             return tf.nn.sigmoid(net_logits), net_logits
 
@@ -139,8 +126,7 @@ class ConditionalGan(object):
             net_input = tf.concat([z, net_embed], 1)
             net_h0 = tf.layers.dense(net_input, units=self.gf_dim*8*s16*s16, activation=None,
                                      kernel_initializer=self.w_init)
-            net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init,
-                                act=None)
+            net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init, act=None)
             # --------------------------------------------------------
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
@@ -150,67 +136,42 @@ class ConditionalGan(object):
                 net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1])
 
             # Residual layer
-            net = tf.layers.conv2d(inputs=net_h0, filters=self.gf_dim * 2, kernel_size=(1, 1), strides=(1, 1),
-                                   padding='valid', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=tf.nn.relu)
-            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim * 2, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=tf.nn.relu)
-            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim * 8, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=None)
+            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid',  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same',  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
             net_h1 = tf.add(net_h0, net)
             net_h1 = tf.nn.relu(net_h1)
             # --------------------------------------------------------
 
-            net_h2 = tf.layers.conv2d_transpose(net_h1, filters=self.gf_dim*4, kernel_size=(4, 4), strides=(2, 2),
-                                                padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h2 = tf.layers.conv2d(inputs=net_h2, filters=self.gf_dim*4, kernel_size=(3, 3), strides=(1, 1),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init,
-                                act=None)
+            net_h2 = conv2d_transpose(net_h1, self.gf_dim*4, ks=(4, 4), s=(2, 2),  init=self.w_init)
+            net_h2 = conv2d(net_h2, self.gf_dim*4, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init, act=None)
             # --------------------------------------------------------
 
             # Residual layer
-            net = tf.layers.conv2d(inputs=net_h2, filters=self.gf_dim, kernel_size=(1, 1), strides=(1, 1),
-                                   padding='valid', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=tf.nn.relu)
-            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=tf.nn.relu)
-            net = tf.layers.conv2d(inputs=net, filters=self.gf_dim*4, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', activation=None, kernel_initializer=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init,
-                             act=None)
+            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid',  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = conv2d(net, self.gf_dim*4, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
             net_h3 = tf.add(net_h2, net)
             net_h3 = tf.nn.relu(net_h3)
             # --------------------------------------------------------
 
-            net_h4 = tf.layers.conv2d_transpose(net_h3, filters=self.gf_dim*2, kernel_size=(4, 4), strides=(2, 2),
-                                                padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h4 = tf.layers.conv2d(inputs=net_h4, filters=self.gf_dim*2, kernel_size=(3, 3), strides=(1, 1),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init,
-                                act=tf.nn.relu)
+            net_h4 = conv2d_transpose(net_h3, self.gf_dim*2, ks=(4, 4), s=(2, 2),  init=self.w_init)
+            net_h4 = conv2d(net_h4, self.gf_dim*2, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
 
-            net_h5 = tf.layers.conv2d_transpose(net_h4, filters=self.gf_dim, kernel_size=(4, 4), strides=(2, 2),
-                                                padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h5 = tf.layers.conv2d(inputs=net_h5, filters=self.gf_dim, kernel_size=(3, 3), strides=(1, 1),
-                                      padding='same', activation=None, kernel_initializer=self.w_init)
-            net_h5 = batch_norm(net_h5, train=is_training, init=self.batch_norm_init,
-                                act=tf.nn.relu)
+            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2),  init=self.w_init)
+            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net_h5 = batch_norm(net_h5, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
 
-            net_logits = tf.layers.conv2d_transpose(net_h5, filters=self.image_dims[-1], kernel_size=(4, 4),
-                                                    strides=(2, 2), padding='same', activation=None,
-                                                    kernel_initializer=self.w_init)
-            net_logits = tf.layers.conv2d(inputs=net_logits, filters=self.image_dims[-1], kernel_size=(3, 3),
-                                          strides=(1, 1), padding='same', activation=None,
-                                          kernel_initializer=self.w_init)
+            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2),  init=self.w_init)
+            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1),  init=self.w_init)
 
             net_output = tf.nn.tanh(net_logits)
             return net_output, mean, log_sigma
