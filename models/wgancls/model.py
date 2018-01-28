@@ -2,7 +2,7 @@ import tensorflow as tf
 from utils.ops import batch_norm, conv2d, conv2d_transpose
 
 
-class ConditionalGan(object):
+class WGanCls(object):
     def __init__(self, cfg, build_model=True):
         """
         Args:
@@ -27,9 +27,6 @@ class ConditionalGan(object):
         self.image_dims = [cfg.MODEL.IMAGE_SHAPE.H, cfg.MODEL.IMAGE_SHAPE.W, cfg.MODEL.IMAGE_SHAPE.D]
         
         self.w_init = tf.random_normal_initializer(stddev=0.02)
-        self.batch_norm_init = {
-            'gamma': tf.random_normal_initializer(1., 0.02),
-        }
 
         if build_model:
             self.build_model()
@@ -49,6 +46,11 @@ class ConditionalGan(object):
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.embed_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.embed_inputs,
                                                                                reuse=True)
+
+        epsilon = tf.random_uniform(shape=[self.batch_size, 1, 1, 1], minval=0., maxval=1.)
+        self.X_hat = epsilon * self.G + (1 - epsilon) * self.inputs
+        self.D_X_hat = self.discriminator(self.X_hat, self.embed_inputs, reuse=True)
+
         self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, is_training=False, reuse=True,
                                             sampler=True)
 
@@ -78,21 +80,15 @@ class ConditionalGan(object):
         
         with tf.variable_scope("d_net", reuse=reuse):
             net_ho = conv2d(inputs, self.df_dim, ks=(4, 4), s=(2, 2), act=lrelu, init=self.w_init)
-            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), init=self.w_init)
-            net_h1 = batch_norm(net_h1, train=is_training, init=self.batch_norm_init, act=lrelu)
-            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), init=self.w_init)
-            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init, act=lrelu)
+            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), act=lrelu, init=self.w_init)
+            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), act=lrelu, init=self.w_init)
             net_h3 = conv2d(net_h2, self.df_dim * 8, ks=(4, 4), s=(2, 2), init=self.w_init)
-            net_h3 = batch_norm(net_h3, train=is_training, init=self.batch_norm_init)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=lrelu)
-            net = conv2d(net, self.df_dim * 2, ks=(3, 3), s=(1, 1), init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=lrelu)
+            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', act=lrelu, init=self.w_init)
+            net = conv2d(net, self.df_dim * 2, ks=(3, 3), s=(1, 1), act=lrelu, init=self.w_init)
             net = conv2d(net, self.df_dim * 8, ks=(3, 3), s=(1, 1), init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init)
             net_h4 = tf.add(net_h3, net)
             net_h4 = tf.nn.leaky_relu(net_h4, 0.2)
             # --------------------------------------------------------
@@ -104,9 +100,8 @@ class ConditionalGan(object):
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
-            net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
-            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=lrelu)
-
+            net_h4 = conv2d(net_h4_concat, self.df_dim*8, ks=(1, 1), s=(1, 1), padding='valid', act=lrelu,
+                            init=self.w_init)
             net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.w_init)
 
             return tf.nn.sigmoid(net_logits), net_logits
@@ -125,7 +120,6 @@ class ConditionalGan(object):
             net_input = tf.concat([z, net_embed], 1)
             net_h0 = tf.layers.dense(net_input, units=self.gf_dim*8*s16*s16, activation=None,
                                      kernel_initializer=self.w_init)
-            net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init, act=None)
             # --------------------------------------------------------
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
@@ -135,42 +129,33 @@ class ConditionalGan(object):
                 net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1])
 
             # Residual layer
-            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid',  init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1),  init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same',  init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
+            net = conv2d(net_h0, self.gf_dim*2, ks=(1, 1), s=(1, 1), padding='valid', act=tf.nn.relu, init=self.w_init)
+            net = conv2d(net, self.gf_dim*2, ks=(3, 3), s=(1, 1), act=tf.nn.relu, init=self.w_init)
+            net = conv2d(net, self.gf_dim*8, ks=(3, 3), s=(1, 1), init=self.w_init)
             net_h1 = tf.add(net_h0, net)
             net_h1 = tf.nn.relu(net_h1)
             # --------------------------------------------------------
 
-            net_h2 = conv2d_transpose(net_h1, self.gf_dim*4, ks=(4, 4), s=(2, 2),  init=self.w_init)
-            net_h2 = conv2d(net_h2, self.gf_dim*4, ks=(3, 3), s=(1, 1),  init=self.w_init)
-            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init, act=None)
+            net_h2 = conv2d_transpose(net_h1, self.gf_dim*4, ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_h2 = conv2d(net_h2, self.gf_dim*4, ks=(3, 3), s=(1, 1), init=self.w_init)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1),  init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim*4, ks=(3, 3), s=(1, 1),  init=self.w_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
+            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', act=tf.nn.relu, init=self.w_init)
+            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1), act=tf.nn.relu, init=self.w_init)
+            net = conv2d(net, self.gf_dim*4, ks=(3, 3), s=(1, 1), init=self.w_init)
             net_h3 = tf.add(net_h2, net)
             net_h3 = tf.nn.relu(net_h3)
             # --------------------------------------------------------
 
             net_h4 = conv2d_transpose(net_h3, self.gf_dim*2, ks=(4, 4), s=(2, 2), init=self.w_init)
-            net_h4 = conv2d(net_h4, self.gf_dim*2, ks=(3, 3), s=(1, 1), init=self.w_init)
-            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net_h4 = conv2d(net_h4, self.gf_dim*2, ks=(3, 3), s=(1, 1), act=tf.nn.relu, init=self.w_init)
 
-            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2),  init=self.w_init)
-            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1),  init=self.w_init)
-            net_h5 = batch_norm(net_h5, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1), act=tf.nn.relu, init=self.w_init)
 
-            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2),  init=self.w_init)
-            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1),  init=self.w_init)
+            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2), init=self.w_init)
+            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1), init=self.w_init)
 
             net_output = tf.nn.tanh(net_logits)
             return net_output, mean, log_sigma
