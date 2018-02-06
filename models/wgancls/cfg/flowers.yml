@@ -3,7 +3,7 @@ DATASET_NAME: 'flowers'
 
 DATASET_DIR: './data/flowers/'
 CHECKPOINT_DIR: './checkpoints/WGan-CLS/flowers/'
-LOGS_DIR: '/tmp/WGan-CLS_logs/'
+LOGS_DIR: './logs/WGan-CLS_logs/'
 SAMPLE_DIR: './samples/WGan-CLS/flowers/'
 
 MODEL:

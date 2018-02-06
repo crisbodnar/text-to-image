@@ -9,7 +9,7 @@ from preprocess.dataset import TextDataset
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './models/stackgan/stageI/cfg/flowers.yml',
+flags.DEFINE_string('cfg', './models/wgancls/cfg/flowers.yml',
                     'Relative path to the config of the model [./models/stackgan/stageI/cfg/flowers.yml]')
 FLAGS = flags.FLAGS
 

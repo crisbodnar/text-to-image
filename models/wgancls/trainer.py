@@ -18,7 +18,7 @@ class WGanClsTrainer(object):
         self.cfg = cfg
 
     def define_losses(self):
-        self.D_wass_loss = tf.reduce_mean(self.model.D_synthetic) - tf.reduce_mean(self.model.D_real_match)
+        self.D_wass_dist = -tf.reduce_mean(self.model.D_synthetic) + tf.reduce_mean(self.model.D_real_match)
         self.D_mismatch_reg = tf.reduce_mean(self.model.D_real_mismatch)
 
         self.G_kl_loss = self.kl_loss(self.model.embed_mean, self.model.embed_log_sigma)
@@ -33,7 +33,7 @@ class WGanClsTrainer(object):
         kl_coeff = self.cfg.TRAIN.COEFF.KL
         lambda_coeff = self.cfg.TRAIN.COEFF.LAMBDA
 
-        self.D_loss = self.D_wass_loss + alpha_coeff * self.D_mismatch_reg + lambda_coeff * gradient_penalty
+        self.D_loss = -self.D_wass_dist + lambda_coeff * gradient_penalty
         self.G_loss = self.G_gan_loss + kl_coeff * self.G_kl_loss
 
         self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
@@ -58,7 +58,7 @@ class WGanClsTrainer(object):
         self.G_img_summ = tf.summary.image("g_sum", self.model.G)
         self.z_sum = tf.summary.histogram("z", self.model.z)
 
-        self.D_wass_loss_summ = tf.summary.scalar('d_synthetic_sum_loss', self.D_wass_loss)
+        self.D_wass_loss_summ = tf.summary.scalar('d_synthetic_sum_loss', self.D_wass_dist)
         self.D_mismatch_loss_summ = tf.summary.scalar('d_real_match_sum_loss', self.D_mismatch_reg)
         self.D_grad_penalty_summ = tf.summary.scalar('d_real_mismatch_sum_loss', self.D_grad_penalty_summ)
         self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
