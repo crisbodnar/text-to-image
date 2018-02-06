@@ -33,3 +33,10 @@ def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
 def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
     return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
                                       kernel_initializer=init)
+
+
+def kl_std_normal_loss(mean, log_sigma):
+    loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
+    loss = tf.reduce_mean(loss)
+    return loss
+

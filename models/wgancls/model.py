@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils.ops import batch_norm, conv2d, conv2d_transpose
+from utils.ops import conv2d, conv2d_transpose, kl_std_normal_loss
 
 
 class WGanCls(object):
@@ -9,7 +9,6 @@ class WGanCls(object):
           cfg: Config specifying all the parameters of the model.
         """
 
-        self.name = 'ConditionalGAN/StageI'
         self.cfg = cfg
 
         self.batch_size = cfg.TRAIN.BATCH_SIZE
@@ -33,30 +32,50 @@ class WGanCls(object):
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
-        self.inputs = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
-        self.wrong_inputs = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='wrong_images')
-        self.embed_inputs = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='phi_inputs')
+        self.x = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
+        self.cond = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='cond')
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name='z')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
-        self.embed_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='phi_sample')
+        self.embed_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
-        self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.embed_inputs, reuse=False)
-        self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.embed_inputs, reuse=False)
-        self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.embed_inputs, reuse=True)
-        self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.embed_inputs,
-                                                                               reuse=True)
+        self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
+        self.Dg, self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
+        self.Dx, self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
 
         epsilon = tf.random_uniform(shape=[self.batch_size, 1, 1, 1], minval=0., maxval=1.)
-        self.X_hat = epsilon * self.G + (1 - epsilon) * self.inputs
-        self.D_X_hat = self.discriminator(self.X_hat, self.embed_inputs, reuse=True)
+        self.x_hat = epsilon * self.G + (1 - epsilon) * self.x
+        self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, is_training=False, reuse=True,
-                                            sampler=True)
+        self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, reuse=True, sampler=True)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if var.name.startswith('d_net')]
         self.g_vars = [var for var in t_vars if var.name.startswith('g_net')]
+        
+    def define_losses(self):
+        self.wass_dist = -tf.reduce_mean(self.Dg) + tf.reduce_mean(self.Dx)
+        self.G_kl_loss = kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
+        self.G_wass_loss = -tf.reduce_mean(self.Dg)
+
+        grad_Dx_hat = tf.gradients(self.Dx_hat_logit, [self.x_hat])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_Dx_hat), reduction_indices=[-1]))
+        self.gradient_penalty = tf.reduce_mean((slopes - 1.)**2)
+
+        # Define the final losses
+        kl_coeff = self.cfg.TRAIN.COEFF.KL
+        lambda_coeff = self.cfg.TRAIN.COEFF.LAMBDA
+
+        self.D_loss = -self.wass_dist + lambda_coeff * self.gradient_penalty
+        self.G_loss = self.G_wass_loss + kl_coeff * self.G_kl_loss
+
+        self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
+        self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
+
+        self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
+            .minimize(self.D_loss, var_list=self.d_vars)
+        self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
+            .minimize(self.G_loss, var_list=self.g_vars)
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
@@ -74,7 +93,7 @@ class WGanCls(object):
         stddev = tf.exp(log_sigma)
         return mean + stddev * epsilon
 
-    def discriminator(self, inputs, embed, is_training=True, reuse=False):
+    def discriminator(self, inputs, embed, reuse=False):
         s16 = self.output_size / 16
         lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
         
@@ -106,7 +125,7 @@ class WGanCls(object):
 
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, embed, is_training=True, reuse=False, sampler=False):
+    def generator(self, z, embed, reuse=False, sampler=False):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -159,5 +178,4 @@ class WGanCls(object):
 
             net_output = tf.nn.tanh(net_logits)
             return net_output, mean, log_sigma
-
 

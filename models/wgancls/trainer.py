@@ -17,74 +17,30 @@ class WGanClsTrainer(object):
         self.dataset = dataset
         self.cfg = cfg
 
-    def define_losses(self):
-        self.D_wass_dist = -tf.reduce_mean(self.model.D_synthetic) + tf.reduce_mean(self.model.D_real_match)
-        self.D_mismatch_reg = tf.reduce_mean(self.model.D_real_mismatch)
-
-        self.G_kl_loss = self.kl_loss(self.model.embed_mean, self.model.embed_log_sigma)
-        self.G_gan_loss = -tf.reduce_mean(self.model.D_synthetic)
-
-        grad_D_X_hat = tf.gradients(self.model.D_X_hat, [self.model.X_hat])[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_D_X_hat), reduction_indices=[-1]))
-        gradient_penalty = tf.reduce_mean((slopes - 1.)**2)
-
-        # Define the final losses
-        alpha_coeff = self.cfg.TRAIN.COEFF.ALPHA_MISMATCH_LOSS
-        kl_coeff = self.cfg.TRAIN.COEFF.KL
-        lambda_coeff = self.cfg.TRAIN.COEFF.LAMBDA
-
-        self.D_loss = -self.D_wass_dist + lambda_coeff * gradient_penalty
-        self.G_loss = self.G_gan_loss + kl_coeff * self.G_kl_loss
-
-        self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
-        self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
-
-        self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
-
-        self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
-            .minimize(self.D_loss, var_list=self.model.d_vars)
-        self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
-            .minimize(self.G_loss, var_list=self.model.g_vars)
-
-    def kl_loss(self, mean, log_sigma):
-        loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
-        loss = tf.reduce_mean(loss)
-        return loss
-
     def define_summaries(self):
-        self.D_synthetic_summ = tf.summary.histogram('d_synthetic_sum', self.model.D_synthetic)
-        self.D_real_match_summ = tf.summary.histogram('d_real_match_sum', self.model.D_real_match)
-        self.D_real_mismatch_summ = tf.summary.histogram('d_real_mismatch_sum', self.model.D_real_mismatch)
-        self.G_img_summ = tf.summary.image("g_sum", self.model.G)
-        self.z_sum = tf.summary.histogram("z", self.model.z)
+        self.summary_op = tf.summary.merge_all([
+            tf.summary.image('x', self.model.x),
+            tf.summary.image('G_img', self.model.G),
 
-        self.D_wass_loss_summ = tf.summary.scalar('d_synthetic_sum_loss', self.D_wass_dist)
-        self.D_mismatch_loss_summ = tf.summary.scalar('d_real_match_sum_loss', self.D_mismatch_reg)
-        self.D_grad_penalty_summ = tf.summary.scalar('d_real_mismatch_sum_loss', self.D_grad_penalty_summ)
-        self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
+            tf.summary.histogram('z', self.model.z),
+            tf.summary.histogram('z_sample', self.model.z_sample),
 
-        self.G_gan_loss_summ = tf.summary.scalar("g_gan_loss", self.G_gan_loss)
-        self.G_kl_loss_summ = tf.summary.scalar("g_kl_loss", self.G_kl_loss)
-        self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
+            tf.summary.scalar('G_kl_loss', self.model.G_kl_loss),
+            tf.summary.scalar('G_wass_loss', self.model.G_wass_loss),
+            tf.summary.scalar('G_loss', self.model.G_loss),
 
-        self.G_merged_summ = tf.summary.merge([self.G_img_summ,
-                                               self.G_loss_summ,
-                                               self.G_gan_loss_summ,
-                                               self.G_kl_loss_summ])
+            tf.summary.scalar('wass_dist', self.model.wass_dist),
+            tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
+            tf.summary.scalar('D_loss', self.model.D_loss),
 
-        self.D_merged_summ = tf.summary.merge([self.D_real_mismatch_summ,
-                                               self.D_real_match_summ,
-                                               self.D_synthetic_summ,
-                                               self.D_wass_loss_summ,
-                                               self.D_mismatch_loss_summ,
-                                               self.D_grad_penalty_summ,
-                                               self.D_loss_summ])
+        ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
 
     def train(self):
-        self.define_losses()
         self.define_summaries()
+
+        self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
         sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
         _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
@@ -117,27 +73,25 @@ class WGanClsTrainer(object):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
                 batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
-                # Update D network
-                for t in range(self.cfg.TRAIN.N_CRITIC):
-                    self.sess.run([self.D_optim],
+
+                    self.sess.run([self.model.D_optim],
                                   feed_dict={
-                                        self.model.inputs: images,
-                                        self.model.wrong_inputs: wrong_images,
-                                        self.model.embed_inputs: embed,
+                                        self.model.x: images,
+                                        self.model.cond: embed,
                                         self.model.z: batch_z
                                   })
 
                 # Update G network
-                _, err_g, summary_str = self.sess.run([self.G_optim, self.G_loss, self.G_merged_summ],
-                                                      feed_dict={self.model.z: batch_z, self.model.embed_inputs: embed})
+                _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.G_merged_summ],
+                                                      feed_dict={self.model.z: batch_z, self.model.cond: embed})
                 self.writer.add_summary(summary_str, counter)
 
                 # Update D one more time after G
                 _, err_d, summary_str = self.sess.run([self.D_optim, self.D_loss, self.D_merged_summ],
                                                       feed_dict={
-                                                          self.model.inputs: images,
+                                                          self.model.x: images,
                                                           self.model.wrong_inputs: wrong_images,
-                                                          self.model.embed_inputs: embed,
+                                                          self.model.cond: embed,
                                                           self.model.z: batch_z
                                                       })
                 self.writer.add_summary(summary_str, counter)
