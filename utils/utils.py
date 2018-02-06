@@ -237,7 +237,7 @@ def save_captions(directory: str, captions):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    filename = 'captions-{}'.format(strftime('%d/%m/%Y|%H/%M/%S'))
+    filename = 'captions.txt'
     filepath = os.path.join(directory, filename)
     if os.path.exists(filepath):
         raise FileExistsError('File {} already exists'.format(filepath))
@@ -245,5 +245,5 @@ def save_captions(directory: str, captions):
     with open(filepath, 'w+') as f:
         f.write('Captions of the sampled images:\n')
         for idx, caption in enumerate(captions):
-            f.write('{}: {}'.format(idx + 1, caption[0]))
+            f.write('{}: {}\n'.format(idx + 1, caption[0]))
 

@@ -1,7 +1,7 @@
 import os
 
-from models.stackgan.stageI.model import ConditionalGan
-from models.stackgan.stageI.trainer import ConditionalGanTrainer
+from models.wgancls.model import WGanCls
+from models.wgancls.trainer import WGanClsTrainer
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -10,7 +10,7 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags.DEFINE_string('cfg', './models/wgancls/cfg/flowers.yml',
-                    'Relative path to the config of the model [./models/stackgan/stageI/cfg/flowers.yml]')
+                    'Relative path to the config of the model [./models/wgancls/cfg/flowers.yml]')
 FLAGS = flags.FLAGS
 
 
@@ -39,11 +39,11 @@ def main(_):
     dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
-        stage_i = ConditionalGan(cfg)
+        stage_i = WGanCls(cfg)
         show_all_variables()
 
         if cfg.TRAIN.FLAG:
-            stage_i_trainer = ConditionalGanTrainer(
+            stage_i_trainer = WGanClsTrainer(
                 sess=sess,
                 model=stage_i,
                 dataset=dataset,

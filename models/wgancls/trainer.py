@@ -1,13 +1,11 @@
-from random import randint
-
 import tensorflow as tf
-
 from models.wgancls.model import WGanCls
 from utils.utils import save_images, image_manifold_size, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
 import time
+import sys
 
 
 class WGanClsTrainer(object):
@@ -18,7 +16,7 @@ class WGanClsTrainer(object):
         self.cfg = cfg
 
     def define_summaries(self):
-        self.summary_op = tf.summary.merge_all([
+        self.summary_op = tf.summary.merge([
             tf.summary.image('x', self.model.x),
             tf.summary.image('G_img', self.model.G),
 
@@ -32,7 +30,6 @@ class WGanClsTrainer(object):
             tf.summary.scalar('wass_dist', self.model.wass_dist),
             tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
             tf.summary.scalar('D_loss', self.model.D_loss),
-
         ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
@@ -47,22 +44,20 @@ class WGanClsTrainer(object):
         sample_cond = np.squeeze(sample_cond, axis=0)
         print('Conditionals sampler shape: {}'.format(sample_cond.shape))
 
-        print(captions)
         save_captions(self.cfg.SAMPLE_DIR, captions)
-        exit(-1)
 
-        counter = 1
         start_time = time.time()
         tf.global_variables_initializer().run()
 
         could_load, checkpoint_counter = load(self.saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
-            counter = checkpoint_counter
+            start_point = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
+            start_point = 0
             print(" [!] Load failed...")
 
-        for idx in range(self.cfg.TRAIN.MAX_STEPS):
+        for idx in range(start_point + 1, self.cfg.TRAIN.MAX_STEPS):
             epoch_size = self.dataset.train.num_examples // self.model.batch_size
             epoch = idx // epoch_size
 
@@ -73,7 +68,7 @@ class WGanClsTrainer(object):
                                       feed_dict={
                                           self.model.x: images,
                                           self.model.cond: embed,
-                                          self.model.z: batch_z
+                                          self.model.z: batch_z,
                                       })
 
             # Update G network
@@ -82,19 +77,20 @@ class WGanClsTrainer(object):
                                                       feed_dict={
                                                           self.model.x: images,
                                                           self.model.z: batch_z,
-                                                          self.model.cond: embed
+                                                          self.model.cond: embed,
+                                                          self.model.z_sample: sample_z,
                                                       })
-                self.writer.add_summary(summary_str, counter)
+                self.writer.add_summary(summary_str, idx)
 
                 print("Epoch: [%2d] [%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
                       % (epoch, idx, time.time() - start_time, err_d, err_g))
 
-            if np.mod(counter, self.cfg.TRAIN.SAMPLE_PERIOD) == 0:
+            if np.mod(idx, self.cfg.TRAIN.SAMPLE_PERIOD) == 0:
                 try:
                     samples = self.sess.run(self.model.sampler,
                                             feed_dict={
                                                 self.model.z_sample: sample_z,
-                                                self.model.embed_sample: sample_cond,
+                                                self.model.cond_sample: sample_cond,
                                             })
                     save_images(samples, image_manifold_size(samples.shape[0]),
                                 '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
@@ -105,5 +101,6 @@ class WGanClsTrainer(object):
                     print(e.args)
                     print(e)
 
-            if np.mod(counter, 500) == 2:
-                save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)
+            if np.mod(idx, 500) == 2:
+                save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, idx)
+            sys.stdout.flush()

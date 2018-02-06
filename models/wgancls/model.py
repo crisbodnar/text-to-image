@@ -29,6 +29,7 @@ class WGanCls(object):
 
         if build_model:
             self.build_model()
+            self.define_losses()
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
@@ -37,26 +38,26 @@ class WGanCls(object):
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name='z')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
-        self.embed_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
+        self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
         self.Dg, self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
         self.Dx, self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
 
         epsilon = tf.random_uniform(shape=[self.batch_size, 1, 1, 1], minval=0., maxval=1.)
-        self.x_hat = epsilon * self.G + (1 - epsilon) * self.x
+        self.x_hat = epsilon * self.G + (1. - epsilon) * self.x
         self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, reuse=True, sampler=True)
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if var.name.startswith('d_net')]
         self.g_vars = [var for var in t_vars if var.name.startswith('g_net')]
         
     def define_losses(self):
-        self.wass_dist = -tf.reduce_mean(self.Dg) + tf.reduce_mean(self.Dx)
+        self.wass_dist = -tf.reduce_mean(self.Dg_logit) + tf.reduce_mean(self.Dx_logit)
         self.G_kl_loss = kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
-        self.G_wass_loss = -tf.reduce_mean(self.Dg)
+        self.G_wass_loss = -tf.reduce_mean(self.Dg_logit)
 
         grad_Dx_hat = tf.gradients(self.Dx_hat_logit, [self.x_hat])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_Dx_hat), reduction_indices=[-1]))
