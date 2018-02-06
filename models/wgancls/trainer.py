@@ -3,7 +3,7 @@ from random import randint
 import tensorflow as tf
 
 from models.wgancls.model import WGanCls
-from utils.utils import save_images, image_manifold_size
+from utils.utils import save_images, image_manifold_size, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
@@ -43,16 +43,13 @@ class WGanClsTrainer(object):
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
         sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
-        _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
-                                                                         randint(0, self.dataset.test.num_examples), 1)
-        sample_embed = np.squeeze(sample_embed, axis=0)
-        print(sample_embed.shape)
+        _, sample_cond, _, captions = self.dataset.test.next_batch_test(self.model.sample_num, 0, 1)
+        sample_cond = np.squeeze(sample_cond, axis=0)
+        print('Conditionals sampler shape: {}'.format(sample_cond.shape))
 
-        # Display the captions of the sampled images
-        print('\nCaptions of the sampled images:')
-        for caption_idx, caption_batch in enumerate(captions):
-            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
-        print()
+        print(captions)
+        save_captions(self.cfg.SAMPLE_DIR, captions)
+        exit(-1)
 
         counter = 1
         start_time = time.time()
@@ -65,63 +62,48 @@ class WGanClsTrainer(object):
         else:
             print(" [!] Load failed...")
 
-        for epoch in range(self.cfg.TRAIN.EPOCH):
-            # Updates per epoch are given by the training data size / batch size
-            updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+        for idx in range(self.cfg.TRAIN.MAX_STEPS):
+            epoch_size = self.dataset.train.num_examples // self.model.batch_size
+            epoch = idx // epoch_size
 
-            for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
-                batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
+            images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
+            batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
+            _, err_d, = self.sess.run([self.model.D_optim, self.model.D_loss],
+                                      feed_dict={
+                                          self.model.x: images,
+                                          self.model.cond: embed,
+                                          self.model.z: batch_z
+                                      })
 
-                    self.sess.run([self.model.D_optim],
-                                  feed_dict={
-                                        self.model.x: images,
-                                        self.model.cond: embed,
-                                        self.model.z: batch_z
-                                  })
-
-                # Update G network
-                _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.G_merged_summ],
-                                                      feed_dict={self.model.z: batch_z, self.model.cond: embed})
-                self.writer.add_summary(summary_str, counter)
-
-                # Update D one more time after G
-                _, err_d, summary_str = self.sess.run([self.D_optim, self.D_loss, self.D_merged_summ],
+            # Update G network
+            if np.mod(idx, self.cfg.TRAIN.N_CRITIC) == 0:
+                _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.summary_op],
                                                       feed_dict={
                                                           self.model.x: images,
-                                                          self.model.wrong_inputs: wrong_images,
-                                                          self.model.cond: embed,
-                                                          self.model.z: batch_z
+                                                          self.model.z: batch_z,
+                                                          self.model.cond: embed
                                                       })
                 self.writer.add_summary(summary_str, counter)
 
-                counter += 1
-                print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
-                      % (epoch, idx, updates_per_epoch,
-                         time.time() - start_time, err_d, err_g))
+                print("Epoch: [%2d] [%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
+                      % (epoch, idx, time.time() - start_time, err_d, err_g))
 
-                if np.mod(counter, 100) == 0:
-                    try:
-                        samples = self.sess.run(self.model.sampler,
-                                                feed_dict={
-                                                            self.model.z_sample: sample_z,
-                                                            self.model.embed_sample: sample_embed,
-                                                          })
-                        save_images(samples, image_manifold_size(samples.shape[0]),
-                                    '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
-                        print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
+            if np.mod(counter, self.cfg.TRAIN.SAMPLE_PERIOD) == 0:
+                try:
+                    samples = self.sess.run(self.model.sampler,
+                                            feed_dict={
+                                                self.model.z_sample: sample_z,
+                                                self.model.embed_sample: sample_cond,
+                                            })
+                    save_images(samples, image_manifold_size(samples.shape[0]),
+                                '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
 
-                        # Display the captions of the sampled images
-                        print('\nCaptions of the sampled images:')
-                        for caption_idx, caption_batch in enumerate(captions):
-                            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
-                        print()
-                    except Exception as e:
-                        print("Failed to generate sample image")
-                        print(type(e))
-                        print(e.args)
-                        print(e)
+                except Exception as e:
+                    print("Failed to generate sample image")
+                    print(type(e))
+                    print(e.args)
+                    print(e)
 
-                if np.mod(counter, 500) == 2:
-                    save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)
+            if np.mod(counter, 500) == 2:
+                save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, counter)

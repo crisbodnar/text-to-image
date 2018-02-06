@@ -231,3 +231,19 @@ def image_manifold_size(num_images):
     manifold_w = int(np.ceil(np.sqrt(num_images)))
     assert manifold_h * manifold_w == num_images
     return manifold_h, manifold_w
+
+
+def save_captions(directory: str, captions):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    filename = 'captions-{}'.format(strftime('%d/%m/%Y|%H/%M/%S'))
+    filepath = os.path.join(directory, filename)
+    if os.path.exists(filepath):
+        raise FileExistsError('File {} already exists'.format(filepath))
+
+    with open(filepath, 'w+') as f:
+        f.write('Captions of the sampled images:\n')
+        for idx, caption in enumerate(captions):
+            f.write('{}: {}'.format(idx + 1, caption[0]))
+
