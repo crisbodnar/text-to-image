@@ -23,12 +23,15 @@ class WGanClsTrainer(object):
             tf.summary.histogram('z', self.model.z),
             tf.summary.histogram('z_sample', self.model.z_sample),
 
-            tf.summary.scalar('G_kl_loss', self.model.G_kl_loss),
-            tf.summary.scalar('G_wass_loss', self.model.G_wass_loss),
+            tf.summary.scalar('G_loss_wass', -self.model.D_loss_fake),
+            tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
 
-            tf.summary.scalar('wass_dist', self.model.wass_dist),
+            tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
+            # tf.summary.scalar('D_loss_real_mismatch', self.model.D_loss_real_mismatch),
+            tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
             tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
+            tf.summary.scalar('neg_d_loss', -self.model.D_loss),
             tf.summary.scalar('D_loss', self.model.D_loss),
         ])
 
@@ -39,7 +42,7 @@ class WGanClsTrainer(object):
 
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
-        sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
+        sample_z = np.random.uniform(-1, 1, (self.model.sample_num, self.model.z_dim))
         _, sample_cond, _, captions = self.dataset.test.next_batch_test(self.model.sample_num, 0, 1)
         sample_cond = np.squeeze(sample_cond, axis=0)
         print('Conditionals sampler shape: {}'.format(sample_cond.shape))
@@ -56,29 +59,35 @@ class WGanClsTrainer(object):
         else:
             start_point = 0
             print(" [!] Load failed...")
+        sys.stdout.flush()
 
         for idx in range(start_point + 1, self.cfg.TRAIN.MAX_STEPS):
             epoch_size = self.dataset.train.num_examples // self.model.batch_size
             epoch = idx // epoch_size
 
             images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
-            batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
+            batch_z = np.random.uniform(-1, 1, (self.model.batch_size, self.model.z_dim))
+            eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))
 
             _, err_d, = self.sess.run([self.model.D_optim, self.model.D_loss],
                                       feed_dict={
                                           self.model.x: images,
+                                          # self.model.x_mismatch: wrong_images,
                                           self.model.cond: embed,
                                           self.model.z: batch_z,
+                                          self.model.epsilon: eps,
                                       })
 
-            # Update G network
+            # Update G network every N_CRITIC steps
             if np.mod(idx, self.cfg.TRAIN.N_CRITIC) == 0:
                 _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.summary_op],
                                                       feed_dict={
                                                           self.model.x: images,
+                                                          # self.model.x_mismatch: wrong_images,
                                                           self.model.z: batch_z,
                                                           self.model.cond: embed,
                                                           self.model.z_sample: sample_z,
+                                                          self.model.epsilon: eps,
                                                       })
                 self.writer.add_summary(summary_str, idx)
 

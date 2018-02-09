@@ -40,3 +40,8 @@ def kl_std_normal_loss(mean, log_sigma):
     loss = tf.reduce_mean(loss)
     return loss
 
+
+def layer_norm(x, act=None):
+    return tf.contrib.layers.layer_norm(x, activation_fn=act)
+
+
