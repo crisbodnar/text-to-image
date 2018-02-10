@@ -23,10 +23,9 @@ TRAIN:
   MAX_STEPS: 300000
   BATCH_SIZE: 64 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
-  EPOCH: 600 # The number of epochs to train.
-  D_LR: 0.00005 # Discriminator learning rate
+  D_LR: 0.0001 # Discriminator learning rate
   D_BETA_DECAY: 0.5 # Discriminator beta decay in AdamOptimiser
-  G_LR: 0.00005 # Generator learning rate
+  G_LR: 0.0001 # Generator learning rate
   G_BETA_DECAY: 0.5 # Generator beta decay in AdamOptimiser
   N_CRITIC: 5
   NUM_EMBEDDINGS: 4

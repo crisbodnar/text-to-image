@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils.ops import conv2d, conv2d_transpose, layer_norm
+from utils.ops import conv2d, conv2d_transpose, layer_norm, batch_norm
 
 
 class WGanCls(object):
