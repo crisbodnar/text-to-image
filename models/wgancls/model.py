@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils.ops import conv2d, conv2d_transpose, layer_norm, batch_norm
+from utils.ops import conv2d, conv2d_transpose, layer_norm, batch_norm, fc
 
 
 class WGanCls(object):
@@ -51,7 +51,6 @@ class WGanCls(object):
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
         self.Dg, self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
         self.Dx, self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
-        # _, self.Dx_mismatch_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
         self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
@@ -66,7 +65,6 @@ class WGanCls(object):
         # Define the final losses
         kl_coeff = self.cfg.TRAIN.COEFF.KL
         lambda_coeff = self.cfg.TRAIN.COEFF.LAMBDA
-        mismatch_coeff = self.cfg.TRAIN.COEFF.MISMATCH
 
         self.D_loss_real_match = -tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
@@ -91,10 +89,8 @@ class WGanCls(object):
         lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
 
         embeddings = tf.layers.flatten(embeddings)
-        mean = tf.layers.dense(embeddings, self.compressed_embed_dim, activation=lrelu,
-                               kernel_initializer=self.fc_init)
-        log_sigma = tf.layers.dense(embeddings, self.compressed_embed_dim,
-                                    activation=lrelu, kernel_initializer=self.fc_init)
+        mean = fc(embeddings, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
+        log_sigma = fc(embeddings, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
         return mean, log_sigma
 
     def sample_normal_conditional(self, mean, log_sigma):
@@ -133,8 +129,7 @@ class WGanCls(object):
             # --------------------------------------------------------
 
             # Compress embeddings
-            net_embed = tf.layers.dense(embed, units=self.compressed_embed_dim, activation=lrelu,
-                                        kernel_initializer=self.fc_init)
+            net_embed = fc(embed, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
 
             # Append embeddings in depth
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
@@ -142,8 +137,10 @@ class WGanCls(object):
 
             net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
             net_h4 = layer_norm(net_h4, act=lrelu)
+            net_h4 = conv2d(net_h4, self.df_dim * 8, ks=(2, 2), s=(2, 2), init=self.conv_init)
+            net_h4 = layer_norm(net_h4, act=lrelu)
 
-            net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
+            net_logits = conv2d(net_h4, 1, ks=(2, 2), s=(2, 2), padding='valid', init=self.conv_init)
 
             return tf.nn.sigmoid(net_logits), net_logits
 
@@ -159,8 +156,7 @@ class WGanCls(object):
 
             # Concatenate the sampled embedding with the z vector
             net_input = tf.concat([z, net_embed], 1)
-            net_h0 = tf.layers.dense(net_input, units=self.gf_dim * 8 * s16 * s16, activation=None,
-                                     kernel_initializer=self.fc_init)
+            net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None, init=self.fc_init)
             net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init, act=None)
             # --------------------------------------------------------
 

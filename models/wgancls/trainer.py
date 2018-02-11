@@ -29,7 +29,6 @@ class WGanClsTrainer(object):
             tf.summary.scalar('lr', self.model.lr),
 
             tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
-            # tf.summary.scalar('D_loss_real_mismatch', self.model.D_loss_real_mismatch),
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
             tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
             tf.summary.scalar('neg_d_loss', -self.model.D_loss),
@@ -73,7 +72,6 @@ class WGanClsTrainer(object):
             _, err_d, = self.sess.run([self.model.D_optim, self.model.D_loss],
                                       feed_dict={
                                           self.model.x: images,
-                                          # self.model.x_mismatch: wrong_images,
                                           self.model.cond: embed,
                                           self.model.z: batch_z,
                                           self.model.epsilon: eps,
@@ -84,7 +82,6 @@ class WGanClsTrainer(object):
                 _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.summary_op],
                                                       feed_dict={
                                                           self.model.x: images,
-                                                          # self.model.x_mismatch: wrong_images,
                                                           self.model.z: batch_z,
                                                           self.model.cond: embed,
                                                           self.model.z_sample: sample_z,

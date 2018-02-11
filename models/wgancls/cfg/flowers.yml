@@ -33,4 +33,3 @@ TRAIN:
   COEFF:
     KL: 10.0
     LAMBDA: 10.0
-    MISMATCH: 0.01
