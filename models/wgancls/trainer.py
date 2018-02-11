@@ -26,6 +26,7 @@ class WGanClsTrainer(object):
             tf.summary.scalar('G_loss_wass', -self.model.D_loss_fake),
             tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
+            tf.summary.scalar('lr', self.model.lr),
 
             tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
             # tf.summary.scalar('D_loss_real_mismatch', self.model.D_loss_real_mismatch),
