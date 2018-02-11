@@ -240,8 +240,7 @@ def save_captions(directory: str, captions):
     filename = 'captions.txt'
     filepath = os.path.join(directory, filename)
     if os.path.exists(filepath):
-        err_msg = 'File %s already exists' % filepath
-        raise FileExistsError(err_msg)
+        os.remove(filepath)
 
     with open(filepath, 'w+') as f:
         f.write('Captions of the sampled images:\n')
