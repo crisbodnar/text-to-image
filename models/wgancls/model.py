@@ -36,6 +36,7 @@ class WGanCls(object):
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
+        self.iter = tf.placeholder(tf.int32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
         self.x_mismatch = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
         self.cond = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='cond')
@@ -52,7 +53,7 @@ class WGanCls(object):
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
         self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True, 
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True,
                                             is_training=False)
 
         t_vars = tf.trainable_variables()
@@ -75,13 +76,18 @@ class WGanCls(object):
         self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
-        self.lr = tf.train.exponential_decay(self.cfg.TRAIN.LR, self.global_step, 300000, 0.5, staircase=True)
-        
+        lr = tf.Variable(self.cfg.TRAIN.LR, trainable=False)
+        decay = tf.maximum(0, 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
+
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
+            self.D_optim = tf.train.AdamOptimizer(tf.multiply(lr, decay),
+                                                  beta1=self.cfg.TRAIN.BETA1,
+                                                  beta2=self.cfg.TRAIN.BETA2)\
                 .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
-            self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
+            self.G_optim = tf.train.AdamOptimizer(tf.multiply(lr, decay),
+                                                  beta1=self.cfg.TRAIN.BETA1,
+                                                  beta2=self.cfg.TRAIN.BETA2)\
                 .minimize(self.G_loss, var_list=self.g_vars)
 
     def generate_conditionals(self, embeddings):

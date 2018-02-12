@@ -75,6 +75,9 @@ class WGanClsTrainer(object):
                                           self.model.cond: embed,
                                           self.model.z: batch_z,
                                           self.model.epsilon: eps,
+                                          self.model.z_sample: sample_z,
+                                          self.model.cond_sample: sample_cond,
+                                          self.model.iter: idx,
                                       })
 
             # Update G network every N_CRITIC steps
@@ -86,6 +89,8 @@ class WGanClsTrainer(object):
                                                           self.model.cond: embed,
                                                           self.model.z_sample: sample_z,
                                                           self.model.epsilon: eps,
+                                                          self.model.cond_sample: sample_cond,
+                                                          self.model.iter: idx,
                                                       })
                 self.writer.add_summary(summary_str, idx)
 
