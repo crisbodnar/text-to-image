@@ -27,9 +27,6 @@ class WGanCls(object):
         
         self.conv_init = tf.contrib.layers.xavier_initializer_conv2d()
         self.fc_init = tf.contrib.layers.xavier_initializer()
-        self.batch_norm_init = {
-            'gamma': tf.random_normal_initializer(1., 0.02),
-        }
 
         self.global_step = tf.Variable(0, trainable=False)
 
@@ -55,7 +52,8 @@ class WGanCls(object):
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
         self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True)
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True, 
+                                            is_training=False)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if var.name.startswith('d_net')]
@@ -78,11 +76,13 @@ class WGanCls(object):
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         self.lr = tf.train.exponential_decay(self.cfg.TRAIN.LR, self.global_step, 300000, 0.5, staircase=True)
-
-        self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
-            .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
-        self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
-            .minimize(self.G_loss, var_list=self.g_vars)
+        
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
+                .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
+            self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=self.cfg.TRAIN.BETA1, beta2=self.cfg.TRAIN.BETA2) \
+                .minimize(self.G_loss, var_list=self.g_vars)
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
@@ -157,7 +157,7 @@ class WGanCls(object):
             # Concatenate the sampled embedding with the z vector
             net_input = tf.concat([z, net_embed], 1)
             net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None, init=self.fc_init)
-            net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init, act=None)
+            net_h0 = batch_norm(net_h0, train=is_training, act=None)
             # --------------------------------------------------------
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
@@ -168,38 +168,38 @@ class WGanCls(object):
 
             # Residual layer
             net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu)
             net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu)
             net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same', init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
+            net = batch_norm(net, train=is_training, act=None)
             net_h1 = tf.add(net_h0, net)
             net_h1 = tf.nn.relu(net_h1)
             # --------------------------------------------------------
 
             net_h2 = conv2d_transpose(net_h1, self.gf_dim * 4, ks=(4, 4), s=(2, 2), init=self.conv_init)
             net_h2 = conv2d(net_h2, self.gf_dim * 4, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net_h2 = batch_norm(net_h2, train=is_training, init=self.batch_norm_init, act=None)
+            net_h2 = batch_norm(net_h2, train=is_training, act=None)
             # --------------------------------------------------------
 
             # Residual layer
             net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu)
             net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu)
             net = conv2d(net, self.gf_dim * 4, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net = batch_norm(net, train=is_training, init=self.batch_norm_init, act=None)
+            net = batch_norm(net, train=is_training, act=None)
             net_h3 = tf.add(net_h2, net)
             net_h3 = tf.nn.relu(net_h3)
             # --------------------------------------------------------
 
             net_h4 = conv2d_transpose(net_h3, self.gf_dim * 2, ks=(4, 4), s=(2, 2), init=self.conv_init)
             net_h4 = conv2d(net_h4, self.gf_dim * 2, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net_h4 = batch_norm(net_h4, train=is_training, act=tf.nn.relu)
 
             net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2), init=self.conv_init)
             net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net_h5 = batch_norm(net_h5, train=is_training, init=self.batch_norm_init, act=tf.nn.relu)
+            net_h5 = batch_norm(net_h5, train=is_training, act=tf.nn.relu)
 
             net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2), init=self.conv_init)
             net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1), init=self.conv_init)

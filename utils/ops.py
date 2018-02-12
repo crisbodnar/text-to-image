@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def batch_norm(x, train, init, act=None, name=None, eps=1e-5, decay=0.9):
+def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
     """
     A batch normalization layer with input x
 
@@ -21,8 +21,7 @@ def batch_norm(x, train, init, act=None, name=None, eps=1e-5, decay=0.9):
                                         param_initializers=init,
                                         is_training=train,
                                         scope=name,
-                                        activation_fn=act,
-                                        updates_collections=None)
+                                        activation_fn=act)
 
 
 def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
