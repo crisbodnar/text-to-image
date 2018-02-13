@@ -76,16 +76,18 @@ class WGanCls(object):
         self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
-        lr = tf.Variable(self.cfg.TRAIN.LR, trainable=False)
-        decay = tf.maximum(0, 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
+        # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
+        decay = 1
+        self.d_lr = self.cfg.TRAIN.D_LR * decay
+        self.g_lr = self.cfg.TRAIN.G_LR * decay
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.D_optim = tf.train.AdamOptimizer(tf.multiply(lr, decay),
+            self.D_optim = tf.train.AdamOptimizer(self.d_lr,
                                                   beta1=self.cfg.TRAIN.BETA1,
                                                   beta2=self.cfg.TRAIN.BETA2)\
                 .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
-            self.G_optim = tf.train.AdamOptimizer(tf.multiply(lr, decay),
+            self.G_optim = tf.train.AdamOptimizer(self.g_lr,
                                                   beta1=self.cfg.TRAIN.BETA1,
                                                   beta2=self.cfg.TRAIN.BETA2)\
                 .minimize(self.G_loss, var_list=self.g_vars)
@@ -141,12 +143,24 @@ class WGanCls(object):
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
-            net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
-            net_h4 = layer_norm(net_h4, act=lrelu)
-            net_h4 = conv2d(net_h4, self.df_dim * 8, ks=(2, 2), s=(2, 2), init=self.conv_init)
-            net_h4 = layer_norm(net_h4, act=lrelu)
+            net_h5 = conv2d(net_h4_concat, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
+            net_h5 = layer_norm(net_h5)
 
-            net_logits = conv2d(net_h4, 1, ks=(2, 2), s=(2, 2), padding='valid', init=self.conv_init)
+            # Residual layer
+            net = conv2d(net_h5, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
+            net = layer_norm(net, act=lrelu)
+            net = conv2d(net, self.df_dim * 2, ks=(2, 2), s=(1, 1), init=self.conv_init)
+            net = layer_norm(net, act=lrelu)
+            net = conv2d(net, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
+            net = layer_norm(net)
+            net_h6 = tf.add(net_h5, net)
+            net_h6 = tf.nn.leaky_relu(net_h6, 0.2)
+
+            net_h7 = conv2d(net_h6, self.df_dim * 8, ks=(2, 2), s=(2, 2), init=self.conv_init)
+            net_h7 = layer_norm(net_h7, act=lrelu)
+            net_h7 = tf.reshape(net_h7, shape=[self.batch_size, -1])
+
+            net_logits = fc(net_h7, units=1, init=self.fc_init, bias=False)
 
             return tf.nn.sigmoid(net_logits), net_logits
 

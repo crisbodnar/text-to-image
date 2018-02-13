@@ -26,7 +26,7 @@ class WGanClsTrainer(object):
             tf.summary.scalar('G_loss_wass', -self.model.D_loss_fake),
             tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
-            tf.summary.scalar('lr', self.model.lr),
+            # tf.summary.scalar('lr', self.model.lr),
 
             tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
@@ -42,7 +42,7 @@ class WGanClsTrainer(object):
 
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
-        sample_z = np.random.uniform(-1, 1, (self.model.sample_num, self.model.z_dim))
+        sample_z = np.random.normal(-1, 1, (self.model.sample_num, self.model.z_dim))
         _, sample_cond, _, captions = self.dataset.test.next_batch_test(self.model.sample_num, 0, 1)
         sample_cond = np.squeeze(sample_cond, axis=0)
         print('Conditionals sampler shape: {}'.format(sample_cond.shape))
@@ -67,7 +67,7 @@ class WGanClsTrainer(object):
 
             images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
             batch_z = np.random.uniform(-1, 1, (self.model.batch_size, self.model.z_dim))
-            eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))
+            eps = np.random.normal(0., 1., size=(self.model.batch_size, 1, 1, 1))
 
             _, err_d, = self.sess.run([self.model.D_optim, self.model.D_loss],
                                       feed_dict={
@@ -81,7 +81,8 @@ class WGanClsTrainer(object):
                                       })
 
             # Update G network every N_CRITIC steps
-            if np.mod(idx, self.cfg.TRAIN.N_CRITIC) == 0:
+            n_critic = self.cfg.TRAIN.N_CRITIC
+            if np.mod(idx, n_critic) == 0:
                 _, err_g, summary_str = self.sess.run([self.model.G_optim, self.model.G_loss, self.summary_op],
                                                       feed_dict={
                                                           self.model.x: images,

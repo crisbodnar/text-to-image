@@ -7,12 +7,12 @@ LOGS_DIR: './logs/WGan-CLS_logs/'
 SAMPLE_DIR: './samples/WGan-CLS/flowers/'
 
 MODEL:
-  Z_DIM: 100 # Dimension of the noise vector
+  Z_DIM: 128 # Dimension of the noise vector
   OUTPUT_SIZE: 64 # The ouput size of the image (e.g 64x64)
   EMBED_DIM: 1024 # The dimension of the embedding before compression (as given by the cnn-rnn encoder)
   COMPRESSED_EMBED_DIM: 128 # The dimension of the embedding after compression
   GF_DIM: 128 # The number of filters in the first convolutional layer of the generator
-  DF_DIM: 64 # The number of filters in the first convolutional layer of the discriminator
+  DF_DIM: 128 # The number of filters in the first convolutional layer of the discriminator
   IMAGE_SHAPE:
     W: 64
     H: 64
@@ -20,11 +20,12 @@ MODEL:
 
 TRAIN:
   FLAG: True
-  MAX_STEPS: 200000
+  MAX_STEPS: 250000
   BATCH_SIZE: 64 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
-  LR: 0.0001 # Learning rate
-  BETA1: 0.5 # Adam beta1
+  D_LR: 0.0003 # Learning rate
+  G_LR: 0.0001
+  BETA1: 0.0 # Adam beta1
   BETA2: 0.9 # Adam beta2
   N_CRITIC: 5
   NUM_EMBEDDINGS: 4

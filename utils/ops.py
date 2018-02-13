@@ -44,7 +44,7 @@ def layer_norm(x, act=None):
     return tf.contrib.layers.layer_norm(x, activation_fn=act)
 
 
-def fc(x, units, act=None, init=None):
-    return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init)
+def fc(x, units, act=None, init=None, bias=True):
+    return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init, use_bias=bias)
 
 
