@@ -88,7 +88,7 @@ class WGanClsTrainer(object):
 
             summary_period = self.cfg.TRAIN.SUMMARY_PERIOD
             if np.mod(idx, summary_period) == 0:
-                summary_str = self.sess.run([self.summary_op])
+                summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
                 self.writer.add_summary(summary_str, idx)
 
                 print("Epoch: [%2d] [%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
