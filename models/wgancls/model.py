@@ -143,24 +143,12 @@ class WGanCls(object):
             net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
-            net_h5 = conv2d(net_h4_concat, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
-            net_h5 = layer_norm(net_h5)
+            net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
+            net_h4 = layer_norm(net_h4, act=lrelu)
+            net_h4 = conv2d(net_h4, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
+            net_h4 = layer_norm(net_h4, act=lrelu)
 
-            # Residual layer
-            net = conv2d(net_h5, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
-            net = layer_norm(net, act=lrelu)
-            net = conv2d(net, self.df_dim * 2, ks=(2, 2), s=(1, 1), init=self.conv_init)
-            net = layer_norm(net, act=lrelu)
-            net = conv2d(net, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
-            net = layer_norm(net)
-            net_h6 = tf.add(net_h5, net)
-            net_h6 = tf.nn.leaky_relu(net_h6, 0.2)
-
-            net_h7 = conv2d(net_h6, self.df_dim * 8, ks=(2, 2), s=(2, 2), init=self.conv_init)
-            net_h7 = layer_norm(net_h7, act=lrelu)
-            net_h7 = tf.reshape(net_h7, shape=[self.batch_size, -1])
-
-            net_logits = fc(net_h7, units=1, init=self.fc_init, bias=False)
+            net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
 
             return tf.nn.sigmoid(net_logits), net_logits
 
