@@ -25,27 +25,20 @@ import scipy.misc
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('checkpoint_dir',
-                           './checkpoints/inception/flowers/model.ckpt',
+tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/model.ckpt',
                            """Path where to read model checkpoints.""")
-
-tf.app.flags.DEFINE_string('image_folder',
-                           '/Users/han/Documents/CUB_200_2011/CUB_200_2011/images',
-                           """Path where to load the images """)
-
-tf.app.flags.DEFINE_integer('num_classes', 20,      # 20 for flowers
-                            """Number of classes """)
-tf.app.flags.DEFINE_integer('splits', 10,
-                            """Number of splits """)
+tf.app.flags.DEFINE_string('image_folder', './evaluation/data', """Path where to load the images """)
+tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """) # 20 for flowers
+tf.app.flags.DEFINE_integer('splits', 10, """Number of splits """)
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
 tf.app.flags.DEFINE_integer('gpu', 1, "The ID of GPU to use")
+
 # Batch normalization. Constant governing the exponential moving average of
 # the 'global' mean and variance for all activations.
 BATCHNORM_MOVING_AVERAGE_DECAY = 0.9997
 
 # The decay to use for the moving average.
 MOVING_AVERAGE_DECAY = 0.9999
-
 
 fullpath = FLAGS.image_folder
 print(fullpath)
@@ -111,10 +104,10 @@ def get_inception_score(sess, images, pred_op):
     return np.mean(scores), np.std(scores)
 
 
-def load_data(fullpath):
-    print(fullpath)
+def load_data(full_path):
+    print(full_path)
     images = []
-    for path, subdirs, files in os.walk(fullpath):
+    for path, subdirs, files in os.walk(full_path):
         for name in files:
             if name.rfind('jpg') != -1 or name.rfind('png') != -1:
                 filename = os.path.join(path, name)
