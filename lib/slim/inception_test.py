@@ -13,13 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for slim.inception."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import tensorflow as tf
 
-from inception.slim import inception_model as inception
+from lib.slim import inception_model as inception
 
 
 class InceptionTest(tf.test.TestCase):

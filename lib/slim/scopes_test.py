@@ -13,13 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 """Tests slim.scopes."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-
 import tensorflow as tf
-from inception.slim import scopes
+from lib.slim import scopes
 
 
 @scopes.add_arg_scope

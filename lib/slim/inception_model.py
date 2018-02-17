@@ -39,14 +39,11 @@
             restore_logits=restore_logits,
             scope=scope)
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import tensorflow as tf
 
-from inception.slim import ops
-from inception.slim import scopes
+from lib.slim import ops
+from lib.slim import scopes
 
 
 def inception_v3(inputs,

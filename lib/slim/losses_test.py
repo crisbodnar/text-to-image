@@ -13,14 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for slim.losses."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-
 import tensorflow as tf
 
-from inception.slim import losses
+from lib.slim import losses
 
 
 class LossesTest(tf.test.TestCase):
