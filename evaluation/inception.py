@@ -36,6 +36,7 @@ def inference(images, num_classes, for_training=False, restore_logits=True,
       # epsilon to prevent 0s in variance.
       'epsilon': 0.001,
     }
+
     # Set weight_decay for weights in Conv and FC layers.
     with slim.arg_scope([slim.ops.conv2d, slim.ops.fc], weight_decay=0.00004):
         with slim.arg_scope([slim.ops.conv2d],
@@ -51,3 +52,25 @@ def inference(images, num_classes, for_training=False, restore_logits=True,
               scope=scope)
 
     return logits, endpoints
+
+
+def load_inception_network(sess, num_classes, batch_size, checkpoint_dir):
+    """Loads the inception network with the parameters from checkpoint_dir"""
+    # Number of classes in the Dataset label set plus 1.
+    # Label 0 is reserved for an (unused) background class.
+    num_classes = num_classes + 1
+
+    # Build a Graph that computes the logits predictions from the inference model.
+    inputs = tf.placeholder( tf.float32, [batch_size, 299, 299, 3], name='inputs')
+
+    logits, layers = inference(inputs, num_classes)
+
+    # Restore the moving average version of the learned variables for eval.
+    variable_averages = \
+        tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY)
+    variables_to_restore = variable_averages.variables_to_restore()
+    saver = tf.train.Saver(variables_to_restore)
+    saver.restore(sess, checkpoint_dir)
+    print('Restoring model from %s).' % checkpoint_dir)
+
+    return logits, layers

@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import math
 from utils.utils import load_inception_data, preprocess_inception_images
-from evaluation.inception_inference import inference
+from evaluation.inception import inference
 
 FLAGS = tf.app.flags.FLAGS
 
