@@ -20,13 +20,13 @@ import tensorflow as tf
 
 import math
 from utils.utils import load_inception_data, preprocess_inception_images
-from evaluation.inception import inference
+from evaluation.inception import load_inception_network
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/model.ckpt',
                            """Path where to read model checkpoints.""")
-tf.app.flags.DEFINE_string('image_folder', './evaluation/data', """Path where to load the images """)
+tf.app.flags.DEFINE_string('img_folder', './evaluation/data', """Path where to load the images """)
 tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """)  # 20 for flowers
 tf.app.flags.DEFINE_integer('splits', 10, """Number of splits """)
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
@@ -39,9 +39,6 @@ BATCHNORM_MOVING_AVERAGE_DECAY = 0.9997
 # The decay to use for the moving average.
 MOVING_AVERAGE_DECAY = 0.9999
 
-fullpath = FLAGS.image_folder
-print(fullpath)
-
 
 def get_inception_score(sess, images, pred_op):
     splits = FLAGS.splits
@@ -50,6 +47,7 @@ def get_inception_score(sess, images, pred_op):
     assert(len(images[0].shape) == 3)
     assert(np.max(images[0]) > 10)
     assert(np.min(images[0]) >= 0.0)
+
     bs = FLAGS.batch_size
     preds = []
     num_examples = len(images)
@@ -96,33 +94,14 @@ def main(unused_argv=None):
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             with tf.device("/gpu:%d" % FLAGS.gpu):
-                # Number of classes in the Dataset label set plus 1.
-                # Label 0 is reserved for an (unused) background class.
-                num_classes = FLAGS.num_classes + 1
-
-                # Build a Graph that computes the logits predictions from the
-                # inference model.
-                inputs = tf.placeholder(
-                    tf.float32, [FLAGS.batch_size, 299, 299, 3],
-                    name='inputs')
-                # print(inputs)
-
-                logits, _ = inference(inputs, num_classes)
+                logits, _ = load_inception_network(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
                 # calculate softmax after remove 0 which reserve for BG
                 known_logits = \
                     tf.slice(logits, [0, 1],
-                             [FLAGS.batch_size, num_classes - 1])
+                             [FLAGS.batch_size, FLAGS.num_classes - 1])
                 pred_op = tf.nn.softmax(known_logits)
 
-                # Restore the moving average version of the
-                # learned variables for eval.
-                variable_averages = \
-                    tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY)
-                variables_to_restore = variable_averages.variables_to_restore()
-                saver = tf.train.Saver(variables_to_restore)
-                saver.restore(sess, FLAGS.checkpoint_dir)
-                print('Restore the model from %s).' % FLAGS.checkpoint_dir)
-                images = load_inception_data(fullpath)
+                images = load_inception_data(FLAGS.img_folder)
                 get_inception_score(sess, images, pred_op)
 
 
