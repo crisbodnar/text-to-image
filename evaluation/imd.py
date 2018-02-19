@@ -2,33 +2,24 @@
 
 import tensorflow as tf
 from scipy import spatial
+import numpy as np
 
 from utils.utils import load_inception_data, preprocess_inception_images
-from evaluation.inception import inference
+from evaluation.inception import load_inception_network
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/model.ckpt',
                            """Path where to read model checkpoints.""")
-tf.app.flags.DEFINE_string('real_image_folder', './evaluation/data/gen/', """Path where to load the real images """)
-tf.app.flags.DEFINE_string('gen_image_folder', './evaluation/data/real/', """Path where to load the real images """)
-tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """) # 20 for flowers
+tf.app.flags.DEFINE_string('real_img_folder', './evaluation/data/gen/', """Path where to load the real images """)
+tf.app.flags.DEFINE_string('gen_img_folder', './evaluation/data/real/', """Path where to load the real images """)
+tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """)  # 20 for flowers
 tf.app.flags.DEFINE_integer('splits', 10, """Number of splits """)
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
 tf.app.flags.DEFINE_integer('gpu', 1, "The ID of GPU to use")
 
-# Batch normalization. Constant governing the exponential moving average of
-# the 'global' mean and variance for all activations.
-BATCHNORM_MOVING_AVERAGE_DECAY = 0.9997
 
-# The decay to use for the moving average.
-MOVING_AVERAGE_DECAY = 0.9999
-
-real_img_folder = FLAGS.real_image_folder
-gen_img_folder = FLAGS.gen_image_folder
-
-
-def get_cosine_dist(gen_img_act, real_img_act):
+def get_cosine_dist(real_img_act, gen_img_act):
     """
     Computes the Inception Match Distance
     :param gen_img_act: A batch of mixed['pre_logits'] activations for the generated images
@@ -47,19 +38,43 @@ def get_cosine_dist(gen_img_act, real_img_act):
     return cos_dist
 
 
-def compute_imd(sess, real_img, gen_img, act_op):
+def compute_imd(sess, real_img, gen_img, act_op, verbose=False):
     assert(len(real_img) == len(gen_img))
+    assert (type(real_img[0]) == np.ndarray)
+    assert (type(gen_img[0]) == np.ndarray)
+    assert (len(real_img[0].shape) == 3)
+    assert (len(gen_img[0].shape) == 3)
+    assert (np.max(real_img[0]) > 10)
+    assert (np.min(gen_img[0]) >= 0.0)
 
-    r_inp = []
-    g_inp = []
-    for idx in range(len(real_img)):
-        r_inp.append(preprocess_inception_images(real_img[idx]))
-        g_inp.append(preprocess_inception_images(gen_img[idx]))
+    batch_size = FLAGS.batch_size
+    d0 = len(real_img)
+    if batch_size > d0:
+        msg = "batch size is bigger than the data size"
+        raise RuntimeError(msg)
 
-    r_act = sess.run(act_op, feed_dict={'inputs:0': r_inp})
-    g_act = sess.run(act_op, feed_dict={'inputs:0': g_inp})
+    n_batches = d0 // batch_size
+    n_used_imgs = n_batches * batch_size
+    distances = np.empty(n_used_imgs)
+    for i in range(n_batches):
+        if verbose:
+            print("\rComputing batch %d/%d" % (i + 1, n_batches), end="", flush=True)
+        start = i * batch_size
+        end = start + batch_size
+        r_img_batch = []
+        g_img_batch = []
+        for j in range(start, end):
+            r_img_batch.append(preprocess_inception_images(real_img[j]))
+            g_img_batch.append(preprocess_inception_images(gen_img[j]))
 
-    print(get_cosine_dist(r_act, g_act))
+        pred_real = sess.run(act_op, {'inputs:0': r_img_batch})
+        pred_gen = sess.run(act_op, {'inputs:0': g_img_batch})
+        distances[start:end] = get_cosine_dist(pred_real, pred_gen)
+
+    if verbose:
+        print(" done")
+
+    return print('Mean {}, Std: {}'.format(np.mean(distances), np.std(distances)))
 
 
 def main(unused_argv=None):
@@ -69,29 +84,13 @@ def main(unused_argv=None):
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             with tf.device("/gpu:%d" % FLAGS.gpu):
-                # Number of classes in the Dataset label set plus 1.
-                # Label 0 is reserved for an (unused) background class.
-                num_classes = FLAGS.num_classes + 1
+                _, layers = load_inception_network(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
 
-                # Build a Graph that computes the high level convolutional features of the images
-                inputs = tf.placeholder(tf.float32, [FLAGS.batch_size, 299, 299, 3], name='inputs')
+                pool3 = layers['pool3']
+                act_op = tf.reshape(pool3, shape=[FLAGS.batch_size, -1])
 
-                _, end_points = inference(inputs, num_classes)
-
-                pre_logits = end_points['pre_logits']
-                act_op = tf.reshape(pre_logits, shape=[FLAGS.batch_size, -1])
-
-                # Restore the moving average version of the
-                # learned variables for eval.
-                variable_averages = \
-                    tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY)
-                variables_to_restore = variable_averages.variables_to_restore()
-                saver = tf.train.Saver(variables_to_restore)
-                saver.restore(sess, FLAGS.checkpoint_dir)
-                print('Restore the model from %s).' % FLAGS.checkpoint_dir)
-
-                real_images = load_inception_data(real_img_folder, alphabetic=True)
-                gen_images = load_inception_data(gen_img_folder, alphabetic=True)
+                real_images = load_inception_data(FLAGS.real_img_folder, alphabetic=True)
+                gen_images = load_inception_data(FLAGS.gen_img_folder, alphabetic=True)
                 compute_imd(sess, real_images, gen_images, act_op)
 
 

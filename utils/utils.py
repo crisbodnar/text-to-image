@@ -250,6 +250,8 @@ def save_captions(directory: str, captions):
 
 def load_inception_data(full_path, alphabetic=False):
     print(full_path)
+    if not os.path.exists(full_path):
+        raise RuntimeError('Path %s does not exits' % full_path)
     images = []
     for path, subdirs, files in os.walk(full_path):
         if alphabetic:
