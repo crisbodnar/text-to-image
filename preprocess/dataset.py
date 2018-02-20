@@ -1,3 +1,7 @@
+"""
+Parts of this code are taken from: https://github.com/hanzhanggit/StackGAN/blob/master/misc/datasets.py
+"""
+
 import numpy as np
 import pickle
 import random
@@ -13,7 +17,7 @@ class Dataset(object):
         self._embeddings = embeddings
         self._filenames = filenames
         self.workdir = workdir
-        self._labels = labels
+        self._labels = np.array(labels)
         self._epochs_completed = -1
         self._num_examples = len(images)
         self._saveIDs = self.saveIDs()
@@ -80,6 +84,7 @@ class Dataset(object):
             return images
 
     def sample_embeddings(self, embeddings, filenames, class_id, sample_num):
+        """Returns a mean of the specified number of embeddings (5 available per image)"""
         if len(embeddings.shape) == 2 or embeddings.shape[1] == 1:
             return np.squeeze(embeddings)
         else:
@@ -102,8 +107,15 @@ class Dataset(object):
             sampled_embeddings_array = np.array(sampled_embeddings)
             return np.squeeze(sampled_embeddings_array), sampled_captions
 
-    def next_batch(self, batch_size, window):
-        """Return the next `batch_size` examples from this data set."""
+    def next_batch(self, batch_size, window, wrong_img=True, embeddings=True, labels=False):
+        """Return the next `batch_size` examples from this data set.
+
+        :arg batch_size: the size of the batch
+        :arg window: the number of embeddings whose mean to be returned (maximum is 5)
+        :arg wrong_img: include the mismatching images in the return list
+        :arg embeddings: include the text embedding is the return list
+        :arg labels: include the class labels in the return list
+        """
         start = self._index_in_epoch
         self._index_in_epoch += batch_size
 
@@ -121,22 +133,24 @@ class Dataset(object):
         end = self._index_in_epoch
 
         current_ids = self._perm[start:end]
-        fake_ids = np.random.randint(self._num_examples, size=batch_size)
-        collision_flag = (self._class_id[current_ids] == self._class_id[fake_ids])
-        fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
-
         sampled_images = self._images[current_ids]
-        sampled_wrong_images = self._images[fake_ids, :, :, :]
         sampled_images = sampled_images.astype(np.float32)
-        sampled_wrong_images = sampled_wrong_images.astype(np.float32)
-        sampled_images = sampled_images * (2. / 255) - 1.
-        sampled_wrong_images = sampled_wrong_images * (2. / 255) - 1.
-
         sampled_images = self.transform(sampled_images)
-        sampled_wrong_images = self.transform(sampled_wrong_images)
-        ret_list = [sampled_images, sampled_wrong_images]
+        ret_list = [sampled_images]
 
-        if self._embeddings is not None:
+        if wrong_img:
+            fake_ids = np.random.randint(self._num_examples, size=batch_size)
+            collision_flag = (self._class_id[current_ids] == self._class_id[fake_ids])
+            fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
+
+            sampled_wrong_images = self._images[fake_ids, :, :, :]
+            sampled_wrong_images = sampled_wrong_images.astype(np.float32)
+            sampled_wrong_images = self.transform(sampled_wrong_images)
+            ret_list.append(sampled_wrong_images)
+        else:
+            ret_list.append(None)
+
+        if self._embeddings is not None and embeddings:
             filenames = [self._filenames[i] for i in current_ids]
             class_id = [self._class_id[i] for i in current_ids]
             sampled_embeddings, sampled_captions = \
@@ -148,7 +162,7 @@ class Dataset(object):
             ret_list.append(None)
             ret_list.append(None)
 
-        if self._labels is not None:
+        if self._labels is not None and labels:
             ret_list.append(self._labels[current_ids])
         else:
             ret_list.append(None)
@@ -164,8 +178,6 @@ class Dataset(object):
 
         sampled_images = self._images[start:end]
         sampled_images = sampled_images.astype(np.float32)
-        # from [0, 255] to [-1.0, 1.0]
-        sampled_images = sampled_images * (2. / 255) - 1.
         sampled_images = self.transform(sampled_images)
 
         sampled_embeddings = self._embeddings[start:end]
@@ -178,7 +190,6 @@ class Dataset(object):
         for i in range(len(sampled_filenames)):
             captions = self.readCaptions(sampled_filenames[i],
                                          sampled_class_id[i])
-            # print(captions)
             sampled_captions.append(captions)
 
         for i in range(np.minimum(max_captions, embedding_num)):
@@ -229,6 +240,7 @@ class TextDataset(object):
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)
+            images = images * (2. / 255) - 1.
             print('images: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:
@@ -243,7 +255,7 @@ class TextDataset(object):
             class_id = pickle.load(f)
 
         return Dataset(images, self.image_shape[0], embeddings,
-                       list_filenames, self.workdir, None,
+                       list_filenames, self.workdir, class_id,
                        aug_flag, class_id)
 
     @property

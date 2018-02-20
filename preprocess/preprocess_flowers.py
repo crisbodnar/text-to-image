@@ -1,12 +1,16 @@
+"""
+Parts of this code are taken from: https://github.com/hanzhanggit/StackGAN/blob/master/misc/preprocess_flowers.py
+"""
 import os
 import pickle
 from preprocess.utils import get_image
 import scipy.misc
 
 LR_HR_RETIO = 4
+MR_HR_RATIO = 2
 IMSIZE = 256
 LOAD_SIZE = int(IMSIZE * 76 / 64)
-FLOWER_DIR = 'data/flowers'
+FLOWER_DIR = './data/flowers'
 
 
 def load_filenames(data_dir):
@@ -19,7 +23,9 @@ def load_filenames(data_dir):
 
 def save_data_list(inpath, outpath, filenames):
     hr_images = []
+    mr_images = []
     lr_images = []
+    mr_size = int(LOAD_SIZE / MR_HR_RATIO)
     lr_size = int(LOAD_SIZE / LR_HR_RETIO)
     cnt = 0
     for key in filenames:
@@ -27,18 +33,26 @@ def save_data_list(inpath, outpath, filenames):
         img = get_image(f_name, LOAD_SIZE, is_crop=False)
         img = img.astype('uint8')
         hr_images.append(img)
+        mr_img = scipy.misc.imresize(img, [mr_size, mr_size], 'bicubic')
         lr_img = scipy.misc.imresize(img, [lr_size, lr_size], 'bicubic')
+
+        mr_images.append(mr_img)
         lr_images.append(lr_img)
         cnt += 1
         if cnt % 100 == 0:
             print('Load %d......' % cnt)
-    #
+
     print('images', len(hr_images), hr_images[0].shape, lr_images[0].shape)
     outfile = outpath + str(LOAD_SIZE) + 'images.pickle'
     with open(outfile, 'wb') as f_out:
         pickle.dump(hr_images, f_out)
         print('save to: ', outfile)
-    #
+
+    outfile = outpath + str(mr_size) + 'images.pickle'
+    with open(outfile, 'wb') as f_out:
+        pickle.dump(mr_images, f_out)
+        print('save to: ', outfile)
+
     outfile = outpath + str(lr_size) + 'images.pickle'
     with open(outfile, 'wb') as f_out:
         pickle.dump(lr_images, f_out)
@@ -47,12 +61,12 @@ def save_data_list(inpath, outpath, filenames):
 
 def convert_flowers_dataset_pickle(inpath):
     # For Train data
-    train_dir = os.path.join(inpath, '_train/')
+    train_dir = os.path.join(inpath, 'train/')
     train_filenames = load_filenames(train_dir)
     save_data_list(inpath, train_dir, train_filenames)
 
     # For Test data
-    test_dir = os.path.join(inpath, '_test/')
+    test_dir = os.path.join(inpath, 'test/')
     test_filenames = load_filenames(test_dir)
     save_data_list(inpath, test_dir, test_filenames)
 

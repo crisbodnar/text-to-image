@@ -2,22 +2,16 @@
 Some codes from
 https://github.com/openai/improved-gan/blob/master/imagenet/utils.py
 """
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
-import tensorflow as tf
 import scipy.misc
 import os
 import errno
 from preprocess.dataset import TextDataset
-from scipy.spatial import distance
 
 
 def get_image(image_path, image_size, is_crop=False, bbox=None):
     global index
-    out = transform(imread(image_path), image_size, is_crop, bbox)
-    return out
+    return transform(imread(image_path), image_size, is_crop, bbox)
 
 
 def custom_crop(img, bbox):
@@ -46,7 +40,7 @@ def transform(image, image_size, is_crop, bbox):
     image = colorize(image)
     if is_crop:
         image = custom_crop(image, bbox)
-    #
+
     transformed_image = scipy.misc.imresize(image, [image_size, image_size], 'bicubic')
     return np.array(transformed_image)
 
