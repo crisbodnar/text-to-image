@@ -47,11 +47,12 @@ class WGanCls(object):
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
-        self.Dg, self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
-        self.Dx, self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
+        self.Dg, self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False)
+        self.Dx, self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True)
+        _, _, self.Dxm_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
-        self.Dx_hat, self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
+        self.Dx_hat, self.Dx_hat_logit, _ = self.discriminator(self.x_hat, self.cond, reuse=True)
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True,
                                             is_training=False)
@@ -67,14 +68,21 @@ class WGanCls(object):
 
         self.D_loss_real_match = -tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
+        self.Dm_loss = \
+            tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxm_logit,
+                                                                   labels=tf.zeros_like(self.Dxm_logit))) \
+            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
+                                                                    labels=tf.ones_like(self.Dxma_logit)))
+        self.Gm_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dgm_logit,
+                                                                    labels=tf.ones_like(self.Dgm_logit)))
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
 
         grad_Dx_hat = tf.gradients(self.Dx_hat_logit, [self.x_hat])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_Dx_hat), reduction_indices=[1, 2, 3]))
-        self.gradient_penalty = tf.reduce_mean(tf.square(slopes - 1.))
+        self.gradient_penalty = tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
 
-        self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty
-        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
+        self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty + self.Dm_loss
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 0.1 * self.Gm_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
         decay = 1
@@ -149,8 +157,9 @@ class WGanCls(object):
             net_h4 = layer_norm(net_h4, act=lrelu)
 
             net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
+            mnet_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
 
-            return tf.nn.sigmoid(net_logits), net_logits
+            return tf.nn.sigmoid(net_logits), net_logits, mnet_logits
 
     def generator(self, z, embed, reuse=False, sampler=False, is_training=True):
         s = self.output_size

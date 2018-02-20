@@ -24,15 +24,18 @@ class WGanClsTrainer(object):
             tf.summary.histogram('z_sample', self.model.z_sample),
 
             tf.summary.scalar('G_loss_wass', -self.model.D_loss_fake),
+            tf.summary.scalar('Gm_loss', self.model.Gm_loss),
             tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
-            # tf.summary.scalar('lr', self.model.lr),
+            tf.summary.scalar('d_lr', self.model.d_lr),
+            tf.summary.scalar('g_lr', self.model.g_lr),
 
             tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
             tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
             tf.summary.scalar('neg_d_loss', -self.model.D_loss),
             tf.summary.scalar('D_loss', self.model.D_loss),
+            tf.summary.scalar('Dm_loss', self.model.Dm_loss),
         ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
@@ -71,6 +74,7 @@ class WGanClsTrainer(object):
 
             feed_dict = {
                 self.model.x: images,
+                self.model.x_mismatch: wrong_images,
                 self.model.cond: embed,
                 self.model.z: batch_z,
                 self.model.epsilon: eps,
