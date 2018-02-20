@@ -34,3 +34,12 @@ TRAIN:
   COEFF:
     KL: 10.0
     LAMBDA: 10.0
+
+EVAL:
+  FLAG: True
+  INCEP_CHECKPOINT_DIR: ./checkpoints/inception/flowers/model.ckpt
+  SAMPLE_SIZE: 1000
+  INCEP_BATCH_SIZE: 64
+  SIZE: 50000
+  ACT_STAT_PATH: ./data/fid/flowers/stats.npz
+  R_IMG_PATH: ./data/flowers/jpg

@@ -181,7 +181,21 @@ def calculate_activation_statistics(images, sess, batch_size, act_op, verbose=Fa
     return mu, sigma
 
 
+def save_activation_statistics(mu, sigma, path):
+    if os.path.exists(path):
+        raise RuntimeError('Path {} already exists. Statistics not saved'.format(path))
+
+    np.savez(path, mu=mu, sigma=sigma)
+
+
+def compute_and_save_activation_statistics(img_path, sess, bs, act_op, save_path, verbose=False):
+    x = load_inception_data(img_path)
+    mu, sigma = calculate_activation_statistics(x, sess, bs, act_op, verbose=verbose)
+
+    save_activation_statistics(mu, sigma, save_path)
+
 # -------------------------------------------------------------------------------
+
 
 def _handle_path(path, sess, act_op):
     if path.endswith('.npz'):

@@ -176,12 +176,7 @@ class WGanCls(object):
             net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None, init=self.fc_init)
             net_h0 = batch_norm(net_h0, train=is_training, act=None)
             # --------------------------------------------------------
-
-            # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
-            if sampler:
-                net_h0 = tf.reshape(net_h0, [self.sample_num, s16, s16, -1])
-            else:
-                net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1])
+            net_h0 = tf.reshape(net_h0, [-1, s16, s16, self.gf_dim * 8])
 
             # Residual layer
             net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)

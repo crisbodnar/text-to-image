@@ -2,6 +2,7 @@ import os
 
 from models.wgancls.model import WGanCls
 from models.wgancls.trainer import WGanClsTrainer
+from models.wgancls.eval import WGanClsEval
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -39,17 +40,27 @@ def main(_):
     dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
-        stage_i = WGanCls(cfg)
-        show_all_variables()
-
-        if cfg.TRAIN.FLAG:
-            stage_i_trainer = WGanClsTrainer(
+        if cfg.EVAL.FLAG:
+            stage_i = WGanCls(cfg, build_model=False)
+            wgan_eval = WGanClsEval(
                 sess=sess,
                 model=stage_i,
                 dataset=dataset,
                 cfg=cfg,
             )
-            stage_i_trainer.train()
+            wgan_eval.evaluate()
+            return
+
+        if cfg.TRAIN.FLAG:
+            stage_i = WGanCls(cfg)
+            show_all_variables()
+            trainer = WGanClsTrainer(
+                sess=sess,
+                model=stage_i,
+                dataset=dataset,
+                cfg=cfg,
+            )
+            trainer.train()
         else:
             pass
 
