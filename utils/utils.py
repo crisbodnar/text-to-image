@@ -247,3 +247,38 @@ def save_captions(directory: str, captions):
         for idx, caption in enumerate(captions):
             f.write('{}: {}\n'.format(idx + 1, caption[0]))
 
+
+def load_inception_data(full_path, alphabetic=False):
+    print(full_path)
+    if not os.path.exists(full_path):
+        raise RuntimeError('Path %s does not exits' % full_path)
+    images = []
+    for path, subdirs, files in os.walk(full_path):
+        if alphabetic:
+            files = sorted(files)
+        for name in files:
+            if name.rfind('jpg') != -1 or name.rfind('png') != -1:
+                filename = os.path.join(path, name)
+                # print('filename', filename)
+                # print('path', path, '\nname', name)
+                # print('filename', filename)
+                if os.path.isfile(filename):
+                    img = scipy.misc.imread(filename)
+                    images.append(img)
+    print('images', len(images), images[0].shape)
+    return images
+
+
+def preprocess_inception_images(img):
+    # print('img', img.shape, img.max(), img.min())
+    # img = Image.fromarray(img, 'RGB')
+    if len(img.shape) == 2:
+        img = np.resize(img, (img.shape[0], img.shape[1], 3))
+    img = scipy.misc.imresize(img, (299, 299, 3),
+                              interp='bilinear')
+    img = img.astype(np.float32)
+    # [0, 255] --> [0, 1] --> [-1, 1]
+    img = img / 127.5 - 1.
+    # print('img', img.shape, img.max(), img.min())
+    return img
+
