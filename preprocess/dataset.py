@@ -7,6 +7,12 @@ import pickle
 import random
 import os
 
+FINAL_SIZE_TO_ORIG = {
+    64: 76,
+    128: 152,
+    256: 304,
+    299: 360,
+}
 
 class Dataset(object):
     def __init__(self, images, imsize, embeddings=None,
@@ -134,6 +140,7 @@ class Dataset(object):
 
         current_ids = self._perm[start:end]
         sampled_images = self._images[current_ids]
+        sampled_images = sampled_images * (2. / 255) - 1.
         sampled_images = sampled_images.astype(np.float32)
         sampled_images = self.transform(sampled_images)
         ret_list = [sampled_images]
@@ -144,6 +151,7 @@ class Dataset(object):
             fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
 
             sampled_wrong_images = self._images[fake_ids, :, :, :]
+            sampled_wrong_images = sampled_wrong_images * (2. / 255) - 1.
             sampled_wrong_images = sampled_wrong_images.astype(np.float32)
             sampled_wrong_images = self.transform(sampled_wrong_images)
             ret_list.append(sampled_wrong_images)
@@ -163,7 +171,8 @@ class Dataset(object):
             ret_list.append(None)
 
         if self._labels is not None and labels:
-            ret_list.append(self._labels[current_ids])
+            class_id = [self._class_id[i] for i in current_ids]
+            ret_list.append(class_id)
         else:
             ret_list.append(None)
         return ret_list
@@ -201,15 +210,13 @@ class Dataset(object):
 
 
 class TextDataset(object):
-    def __init__(self, workdir, hr_lr_ratio):
-        lr_imsize = 64
-        self.hr_lr_ratio = hr_lr_ratio
-        if self.hr_lr_ratio == 1:
-            self.image_filename = '/76images.pickle'
-        elif self.hr_lr_ratio == 4:
-            self.image_filename = '/304images.pickle'
+    def __init__(self, workdir, size):
+        self.size = size
+        if size not in FINAL_SIZE_TO_ORIG:
+            raise RuntimeError('Size {} not supported'.format(size))
+        self.image_filename = '/{}images.pickle'.format(FINAL_SIZE_TO_ORIG[size])
 
-        self.image_shape = [lr_imsize * self.hr_lr_ratio, lr_imsize * self.hr_lr_ratio, 3]
+        self.image_shape = [size, size, 3]
         self.image_dim = self.image_shape[0] * self.image_shape[1] * 3
         self.embedding_shape = None
 
@@ -234,13 +241,12 @@ class TextDataset(object):
 
     @test.setter
     def test(self, test):
-        self._train = test
+        self._test = test
 
     def get_data(self, pickle_path, aug_flag=True) -> Dataset:
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)
-            images = images * (2. / 255) - 1.
             print('images: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:

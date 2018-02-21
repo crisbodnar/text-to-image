@@ -6,10 +6,9 @@ import pickle
 from preprocess.utils import get_image
 import scipy.misc
 
-LR_HR_RETIO = 4
-MR_HR_RATIO = 2
-IMSIZE = 256
-LOAD_SIZE = int(IMSIZE * 76 / 64)
+# Edit this list to specify which files to be created
+IMG_SIZES = [360]
+LOAD_SIZE = IMG_SIZES[-1]
 FLOWER_DIR = './data/flowers'
 
 
@@ -22,41 +21,30 @@ def load_filenames(data_dir):
 
 
 def save_data_list(inpath, outpath, filenames):
-    hr_images = []
-    mr_images = []
-    lr_images = []
-    mr_size = int(LOAD_SIZE / MR_HR_RATIO)
-    lr_size = int(LOAD_SIZE / LR_HR_RETIO)
+    images = [[], [], [], []]
     cnt = 0
     for key in filenames:
         f_name = '%s/%s.jpg' % (inpath, key)
         img = get_image(f_name, LOAD_SIZE, is_crop=False)
         img = img.astype('uint8')
-        hr_images.append(img)
-        mr_img = scipy.misc.imresize(img, [mr_size, mr_size], 'bicubic')
-        lr_img = scipy.misc.imresize(img, [lr_size, lr_size], 'bicubic')
 
-        mr_images.append(mr_img)
-        lr_images.append(lr_img)
+        for idx, size in enumerate(IMG_SIZES):
+            if size != LOAD_SIZE:
+                img = scipy.misc.imresize(img, [size, size], 'bicubic')
+            images[idx].append(img)
+
         cnt += 1
         if cnt % 100 == 0:
             print('Load %d......' % cnt)
 
-    print('images', len(hr_images), hr_images[0].shape, lr_images[0].shape)
-    outfile = outpath + str(LOAD_SIZE) + 'images.pickle'
-    with open(outfile, 'wb') as f_out:
-        pickle.dump(hr_images, f_out)
-        print('save to: ', outfile)
+    print(len(images[0]), 'images processed')
+    print('Image sizes:', IMG_SIZES)
 
-    outfile = outpath + str(mr_size) + 'images.pickle'
-    with open(outfile, 'wb') as f_out:
-        pickle.dump(mr_images, f_out)
-        print('save to: ', outfile)
-
-    outfile = outpath + str(lr_size) + 'images.pickle'
-    with open(outfile, 'wb') as f_out:
-        pickle.dump(lr_images, f_out)
-        print('save to: ', outfile)
+    for idx, size in enumerate(IMG_SIZES):
+        outfile = outpath + str(size) + 'images.pickle'
+        with open(outfile, 'wb') as f_out:
+            pickle.dump(images[idx], f_out)
+            print('save to: ', outfile)
 
 
 def convert_flowers_dataset_pickle(inpath):

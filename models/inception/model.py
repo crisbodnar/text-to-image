@@ -3,7 +3,7 @@ import tensorflow.contrib.slim as slim
 from tensorflow.contrib.slim.python.slim.nets import inception
 
 
-def inception_net(images, num_classes, for_training=False):
+def inception_net(images, num_classes, for_training=False, reuse=False):
     """Build Inception v3 model architecture.
 
     See here for reference: http://arxiv.org/abs/1512.00567
@@ -27,24 +27,25 @@ def inception_net(images, num_classes, for_training=False):
             logits, endpoints = inception.inception_v3(images,
                                                        dropout_keep_prob=0.8,
                                                        num_classes=num_classes,
-                                                       is_training=for_training)
+                                                       is_training=for_training,
+                                                       reuse=reuse)
 
     return logits, endpoints
 
-
-def load_inception_network(sess, num_classes, batch_size, checkpoint_dir):
-    """Loads the inception network with the parameters from checkpoint_dir"""
-    # Number of classes in the Dataset label set plus 1.
-    # Label 0 is reserved for an (unused) background class.
-    num_classes = num_classes + 1
-
-    # Build a Graph that computes the logits predictions from the inference model.
-    inputs = tf.placeholder( tf.float32, [batch_size, 299, 299, 3], name='inputs')
-
-    logits, layers = inference(inputs, num_classes)
-
-    saver = tf.train.Saver([])
-    saver.restore(sess, checkpoint_dir)
-    print('Restoring model from %s).' % checkpoint_dir)
-
-    return logits, layers
+#
+# def load_inception_network(sess, num_classes, batch_size, checkpoint_dir):
+#     """Loads the inception network with the parameters from checkpoint_dir"""
+#     # Number of classes in the Dataset label set plus 1.
+#     # Label 0 is reserved for an (unused) background class.
+#     num_classes = num_classes + 1
+#
+#     # Build a Graph that computes the logits predictions from the inference model.
+#     inputs = tf.placeholder( tf.float32, [batch_size, 299, 299, 3], name='inputs')
+#
+#     logits, layers = inference(inputs, num_classes)
+#
+#     saver = tf.train.Saver([])
+#     saver.restore(sess, checkpoint_dir)
+#     print('Restoring model from %s).' % checkpoint_dir)
+#
+#     return logits, layers
