@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import math
 from utils.utils import load_inception_data, preprocess_inception_images
-from evaluation.inception import load_inception_network
+from models.inception.model import load_inception_inference
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -87,7 +87,7 @@ def main(unused_argv=None):
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             with tf.device("/gpu:%d" % FLAGS.gpu):
-                logits, _ = load_inception_network(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
+                logits, _ = load_inception_inference(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
                 # calculate softmax after remove 0 which reserve for BG
                 known_logits = \
                     tf.slice(logits, [0, 1],

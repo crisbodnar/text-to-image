@@ -2,7 +2,7 @@ import os
 
 from models.wgancls.model import WGanCls
 from models.wgancls.trainer import WGanClsTrainer
-from models.wgancls.eval import WGanClsEval
+from models.wgancls.eval_wgan import WGanClsEval
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -31,7 +31,7 @@ def main(_):
     run_config.gpu_options.allow_growth = True
 
     datadir = cfg.DATASET_DIR
-    dataset = TextDataset(datadir, 1)
+    dataset = TextDataset(datadir, 299)
 
     filename_test = '%s/test' % datadir
     dataset._test = dataset.get_data(filename_test)

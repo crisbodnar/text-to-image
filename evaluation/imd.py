@@ -5,7 +5,7 @@ from scipy import spatial
 import numpy as np
 
 from utils.utils import load_inception_data, preprocess_inception_images
-from evaluation.inception import load_inception_network
+from models.inception.model import load_inception_inference
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -84,9 +84,9 @@ def main(unused_argv=None):
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             with tf.device("/gpu:%d" % FLAGS.gpu):
-                _, layers = load_inception_network(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
+                _, layers = load_inception_inference(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
 
-                pool3 = layers['pool3']
+                pool3 = layers['PreLogits']
                 act_op = tf.reshape(pool3, shape=[FLAGS.batch_size, -1])
 
                 real_images = load_inception_data(FLAGS.real_img_folder, alphabetic=True)

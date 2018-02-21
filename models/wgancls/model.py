@@ -57,10 +57,9 @@ class WGanCls(object):
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True,
                                             is_training=False)
 
-        t_vars = tf.trainable_variables()
-        self.d_vars = [var for var in t_vars if var.name.startswith('d_net')]
-        self.g_vars = [var for var in t_vars if var.name.startswith('g_net')]
-        
+        self.d_vars = tf.trainable_variables('d_net')
+        self.g_vars = tf.trainable_variables('g_net')
+
     def define_losses(self):
         # Define the final losses
         kl_coeff = self.cfg.TRAIN.COEFF.KL

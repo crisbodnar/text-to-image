@@ -32,9 +32,7 @@ class InceptionTrainer(object):
         train_correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(self.logits, 1))
         self.train_accuracy = tf.reduce_mean(tf.cast(train_correct_prediction, tf.float32))
 
-        t_vars = tf.trainable_variables()
-        self.vars = [var for var in t_vars if var.name.startswith('InceptionV3')]
-
+        self.vars = tf.trainable_variables('InceptionV3')
         self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=one_hot_labels))
         self.optim = tf.train.AdamOptimizer(learning_rate=0.00005, beta1=0.5).minimize(self.loss, var_list=self.vars)
 
@@ -43,10 +41,9 @@ class InceptionTrainer(object):
     def train(self):
         self.define_model()
         self.define_summaries()
-        self.saver = tf.train.Saver(self.vars, max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
+        self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
         start_time = time.time()
-        tf.global_variables_initializer().run()
 
         could_load, checkpoint_counter = load(self.saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
@@ -55,6 +52,7 @@ class InceptionTrainer(object):
         else:
             start_point = 0
             print(" [!] Load failed...")
+            tf.global_variables_initializer().run()
         sys.stdout.flush()
 
         batch_size = self.cfg.MODEL.BATCH_SIZE
@@ -62,8 +60,7 @@ class InceptionTrainer(object):
             epoch_size = self.dataset.test.num_examples // batch_size
             epoch = idx // epoch_size
 
-            images, _, _, _, labels = self.dataset.test.next_batch(batch_size, None, wrong_img=False, embeddings=False,
-                                                                   labels=True)
+            images, _, _, _, labels = self.dataset.test.next_batch(batch_size, labels=True)
 
             feed_dict = {
                 self.x: images,

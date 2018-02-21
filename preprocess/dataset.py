@@ -113,7 +113,7 @@ class Dataset(object):
             sampled_embeddings_array = np.array(sampled_embeddings)
             return np.squeeze(sampled_embeddings_array), sampled_captions
 
-    def next_batch(self, batch_size, window, wrong_img=True, embeddings=True, labels=False):
+    def next_batch(self, batch_size, window=None, wrong_img=False, embeddings=False, labels=False):
         """Return the next `batch_size` examples from this data set.
 
         :arg batch_size: the size of the batch

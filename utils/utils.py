@@ -125,6 +125,7 @@ def visualize(sess, gancls, config, option):
     from random import randint
     image_frame_dim = int(math.ceil(config.sample_num ** .5))
     if option == 0:
+        # Generate a superimage of all samples
         sample_z = np.random.uniform(-1, 1, size=(config.sample_num, gancls.z_dim))
         _, sample_embed, _, captions \
             = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples), 1)

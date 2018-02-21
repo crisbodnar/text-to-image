@@ -21,11 +21,9 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import os
 import tensorflow as tf
-from scipy.misc import imread
 from scipy import linalg
-import pathlib
 import warnings
-from evaluation.inception import load_inception_network
+from models.inception.model import load_inception_inference
 from utils.utils import load_inception_data, preprocess_inception_images
 
 
@@ -185,6 +183,7 @@ def save_activation_statistics(mu, sigma, path):
     if os.path.exists(path):
         raise RuntimeError('Path {} already exists. Statistics not saved'.format(path))
 
+    os.makedirs(os.path.dirname(path))
     np.savez(path, mu=mu, sigma=sigma)
 
 
@@ -218,8 +217,8 @@ def calculate_fid_given_paths():
         raise RuntimeError("Invalid path %s" % gen_img_path)
 
     with tf.Session() as sess:
-        _, layers = load_inception_network(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
-        pool3 = layers['pool3']
+        _, layers = load_inception_inference(sess, FLAGS.num_classes, FLAGS.batch_size, FLAGS.checkpoint_dir)
+        pool3 = layers['PreLogits']
         act_op = tf.reshape(pool3, shape=[FLAGS.batch_size, -1])
 
         m1, s1 = _handle_path(real_img_path, sess, act_op)
