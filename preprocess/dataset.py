@@ -8,6 +8,10 @@ import random
 import os
 
 FINAL_SIZE_TO_ORIG = {
+    4: 6,
+    8: 12,
+    16: 22,
+    32: 40,
     64: 76,
     128: 152,
     256: 304,

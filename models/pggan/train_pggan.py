@@ -1,0 +1,60 @@
+import tensorflow as tf
+
+from models.pggan.pggan import PGGAN
+from preprocess.dataset import TextDataset
+from utils.config import config_from_yaml
+import os
+
+flags = tf.app.flags
+flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
+                    'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+FLAGS = flags.FLAGS
+
+if __name__ == "__main__":
+
+    stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]
+    prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]
+
+    for i in range(len(stage)):
+
+        t = False if (i % 2 == 0) else True
+
+        cfg = config_from_yaml(FLAGS.cfg)
+
+        batch_size = 16
+        max_iters = 32000
+        sample_size = 512
+        GAN_learn_rate = 1e-4
+
+        pggan_checkpoint_dir_write = os.path.join(cfg.CHECKPOINT_DIR, '%d' % stage[i])
+        sample_path = os.path.join(cfg.SAMPLE_DIR, '%d' % i)
+        pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, '%d' % prev_stage[i])
+
+        if not os.path.exists(cfg.CHECKPOINT_DIR):
+            os.makedirs(cfg.CHECKPOINT_DIR)
+        if not os.path.exists(cfg.SAMPLE_DIR):
+            os.makedirs(cfg.SAMPLE_DIR)
+        if not os.path.exists(cfg.LOGS_DIR):
+            os.makedirs(cfg.LOGS_DIR)
+
+        run_config = tf.ConfigProto()
+        run_config.gpu_options.allow_growth = True
+
+        datadir = cfg.DATASET_DIR
+        dataset = TextDataset(datadir, cfg.MODEL.SIZES[stage[i] - 1])
+
+        filename_test = '%s/test' % datadir
+        dataset.test = dataset.get_data(filename_test)
+
+        filename_train = '%s/train' % datadir
+        dataset.train = dataset.get_data(filename_train)
+
+        pggan = PGGAN(batch_size=batch_size, max_iters=max_iters,
+                      model_path=pggan_checkpoint_dir_write, read_model_path=pggan_checkpoint_dir_read,
+                      data=dataset, sample_size=sample_size,
+                      sample_path=sample_path, log_dir=cfg.LOGS_DIR, learn_rate=GAN_learn_rate, stage=stage[i],
+                      t=t)
+
+        pggan.build_model_PGGan()
+        pggan.train()
+

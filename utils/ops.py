@@ -24,14 +24,18 @@ def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
                                         activation_fn=act)
 
 
-def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
+def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
+    if init is None:
+        init = tf.contrib.layers.xavier_initializer_conv2d()
     return tf.layers.conv2d(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                            kernel_initializer=init)
+                            kernel_initializer=init, name=name)
 
 
-def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None):
+def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
+    if init is None:
+        init = tf.contrib.layers.xavier_initializer_conv2d()
     return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                                      kernel_initializer=init)
+                                      kernel_initializer=init, name=name)
 
 
 def kl_std_normal_loss(mean, log_sigma):
@@ -40,11 +44,50 @@ def kl_std_normal_loss(mean, log_sigma):
     return loss
 
 
-def layer_norm(x, act=None):
-    return tf.contrib.layers.layer_norm(x, activation_fn=act)
+def layer_norm(x, act=None, scope=None):
+    return tf.contrib.layers.layer_norm(x, activation_fn=act, scope=scope)
 
 
-def fc(x, units, act=None, init=None, bias=True):
-    return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init, use_bias=bias)
+def fc(x, units, act=None, init=None, bias=True, name=None):
+    if init is None:
+        init = tf.contrib.layers.xavier_initializer()
+    return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init, use_bias=bias, name=name)
+
+
+def lrelu_act(alpha=0.2):
+    return lambda x: tf.nn.leaky_relu(x, alpha)
+
+
+def pix_norm(x, eps=1e-8):
+    return x / tf.sqrt(tf.reduce_mean(x**2, axis=3, keep_dims=True) + eps)
+
+
+def pool(x, s=2, p_type='AVG'):
+    return tf.nn.pool(x, window_shape=[1, s, s, 1], pooling_type=p_type, strides=[1, s, s, 1], padding='SAME')
+
+
+def resize_nearest_neighbor(x, new_size):
+    x = tf.image.resize_nearest_neighbor(x, new_size)
+    return x
+
+
+def upscale(x, s=2):
+    _, h, w, _ = get_conv_shape(x)
+    return resize_nearest_neighbor(x, (h*s, w*s))
+
+
+def downscale(x, s=2):
+    _, h, w, _ = get_conv_shape(x)
+    return resize_nearest_neighbor(x, (h // s, w // s))
+
+
+def get_conv_shape(tensor):
+    shape = int_shape(tensor)
+    return shape
+
+
+def int_shape(tensor):
+    shape = tensor.get_shape().as_list()
+    return [num if num is not None else -1 for num in shape]
 
 
