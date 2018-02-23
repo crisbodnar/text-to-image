@@ -11,7 +11,7 @@ def save(saver: tf.train.Saver, sess: tf.Session, checkpoint_dir, step):
 
 
 def load(saver: tf.train.Saver, sess: tf.Session, checkpoint_dir: str):
-    print(" [*] Reading checkpoints...")
+    print(" [*] Reading checkpoints from %s..." % checkpoint_dir)
 
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
@@ -21,5 +21,5 @@ def load(saver: tf.train.Saver, sess: tf.Session, checkpoint_dir: str):
         print(" [*] Success to read {}".format(ckpt_name))
         return True, counter
     else:
-        print(" [*] Failed to find a checkpoints")
+        print(" [*] Failed to find checkpoints")
         return False, 0

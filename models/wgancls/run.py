@@ -34,10 +34,10 @@ def main(_):
     dataset = TextDataset(datadir, 299)
 
     filename_test = '%s/test' % datadir
-    dataset._test = dataset.get_data(filename_test)
+    dataset.test = dataset.get_data(filename_test)
 
-    filename_train = '%s/train' % datadir
-    dataset.train = dataset.get_data(filename_train)
+    # filename_train = '%s/train' % datadir
+    # dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
         if cfg.EVAL.FLAG:
@@ -48,7 +48,7 @@ def main(_):
                 dataset=dataset,
                 cfg=cfg,
             )
-            wgan_eval.evaluate()
+            wgan_eval.evaluate_inception()
             return
 
         if cfg.TRAIN.FLAG:

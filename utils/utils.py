@@ -10,6 +10,7 @@ import numpy as np
 from time import gmtime, strftime
 import os
 import imageio
+from PIL import Image
 from itertools import chain
 
 import tensorflow as tf
@@ -121,107 +122,80 @@ def make_gif(images, fname, duration=2, true_image=False):
     clip.write_gif(fname, fps=len(images) / duration)
 
 
-def visualize(sess, gancls, config, option):
-    from random import randint
-    image_frame_dim = int(math.ceil(config.sample_num ** .5))
+def visualize(sess, dcgan, config, option):
+    image_frame_dim = int(math.ceil(config.batch_size**.5))
     if option == 0:
-        # Generate a superimage of all samples
-        sample_z = np.random.uniform(-1, 1, size=(config.sample_num, gancls.z_dim))
-        _, sample_embed, _, captions \
-            = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples), 1)
-        sample_embed = np.squeeze(sample_embed, axis=0)
-
-        samples = sess.run(gancls.sampler, feed_dict={gancls.z: sample_z, gancls.phi_sample: sample_embed})
-        save_images(samples, [image_frame_dim, image_frame_dim],
-                    './samples/test_%s.png' % strftime("%Y%m%d%H%M%S", gmtime()))
+        # Save super image
+        z_sample = np.random.uniform(-0.5, 0.5, size=(config.batch_size, dcgan.z_dim))
+        samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+        save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
     elif option == 1:
-        values = np.arange(0, 1, 1. / config.sample_num)
-        for idx in range(100):
+        # Incremental constant z vectors
+        values = np.arange(0, 1, 1./config.batch_size)
+        for idx in range(dcgan.z_dim):
             print(" [*] %d" % idx)
-            sample_z = np.zeros([config.sample_num, gancls.z_dim])
-            _, sample_embed, _, captions \
-                = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples),
-                                                      1)
-            sample_embed = np.squeeze(sample_embed, axis=0)
-            for kdx, z in enumerate(sample_z):
+            z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
+            for kdx, z in enumerate(z_sample):
                 z[idx] = values[kdx]
 
-            samples = sess.run(gancls.sampler, feed_dict={gancls.z_sample: sample_z, gancls.phi_sample: sample_embed})
+            if config.dataset == "mnist":
+                y = np.random.choice(10, config.batch_size)
+                y_one_hot = np.zeros((config.batch_size, 10))
+                y_one_hot[np.arange(config.batch_size), y] = 1
 
-            save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % idx)
+                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+            else:
+                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+
+            save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
     elif option == 2:
-        values = np.arange(0, 1, 1. / config.sample_num)
-        for idx in [random.randint(0, 99) for _ in range(100)]:
+        values = np.arange(0, 1, 1./config.batch_size)
+        for idx in [random.randint(0, dcgan.z_dim - 1) for _ in range(dcgan.z_dim)]:
             print(" [*] %d" % idx)
-            z = np.random.uniform(-0.2, 0.2, size=gancls.z_dim)
-            z_sample = np.tile(z, (config.sample_num, 1))
-            # z_sample = np.zeros([config.sample_num, gancls.z_dim])
-            _, sample_embed, _, captions \
-                = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples),
-                                                      1)
-            sample_embed = np.squeeze(sample_embed, axis=0)
+            z = np.random.uniform(-0.2, 0.2, size=(dcgan.z_dim))
+            z_sample = np.tile(z, (config.batch_size, 1))
+            #z_sample = np.zeros([config.batch_size, dcgan.z_dim])
             for kdx, z in enumerate(z_sample):
                 z[idx] = values[kdx]
 
-            samples = sess.run(gancls.sampler, feed_dict={gancls.z_sample: z_sample, gancls.phi_sample: sample_embed})
-            make_gif(samples, './samples/test_gif_%s.gif' % idx)
+            if config.dataset == "mnist":
+                y = np.random.choice(10, config.batch_size)
+                y_one_hot = np.zeros((config.batch_size, 10))
+                y_one_hot[np.arange(config.batch_size), y] = 1
 
+                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+            else:
+                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+
+            try:
+                make_gif(samples, './samples/test_gif_%s.gif' % (idx))
+            except:
+                save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
     elif option == 3:
-        values = np.arange(0, 1, 1. / config.sample_num)
-        for idx in range(100):
+        values = np.arange(0, 1, 1./config.batch_size)
+        for idx in range(dcgan.z_dim):
             print(" [*] %d" % idx)
-            z_sample = np.zeros([config.sample_num, gancls.z_dim])
-            _, sample_embed, _, captions \
-                = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples),
-                                                      1)
-            sample_embed = np.squeeze(sample_embed, axis=0)
+            z_sample = np.zeros([config.batch_size, dcgan.z_dim])
             for kdx, z in enumerate(z_sample):
                 z[idx] = values[kdx]
 
-            samples = sess.run(gancls.sampler, feed_dict={gancls.z_sample: z_sample, gancls.phi_sample: sample_embed})
-            make_gif(samples, './samples/test_gif_%s.gif' % idx)
+            samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+            make_gif(samples, './samples/test_gif_%s.gif' % (idx))
     elif option == 4:
         image_set = []
-        values = np.arange(0, 1, 1. / config.sample_num)
+        values = np.arange(0, 1, 1./config.batch_size)
 
-        for idx in range(100):
+        for idx in range(dcgan.z_dim):
             print(" [*] %d" % idx)
-            z_sample = np.zeros([config.sample_num, gancls.z_dim])
-            _, sample_embed, _, captions \
-                = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples),
-                                                      1)
-            sample_embed = np.squeeze(sample_embed, axis=0)
-            for kdx, z in enumerate(z_sample):
-                z[idx] = values[kdx]
+            z_sample = np.zeros([config.batch_size, dcgan.z_dim])
+            for kdx, z in enumerate(z_sample): z[idx] = values[kdx]
 
-            image_set.append(sess.run(gancls.sampler, feed_dict={gancls.z_sample: z_sample,
-                                                                 gancls.phi_sample: sample_embed}))
-            make_gif(image_set[-1], './samples/test_gif_%s.gif' % idx)
+            image_set.append(sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample}))
+            make_gif(image_set[-1], './samples/test_gif_%s.gif' % (idx))
 
-        new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10])
-                         for idx in chain(range(gancls.sample_num), range(gancls.sample_num - 1, -1, -1))]
-        make_gif(new_image_set, './samples/test_gif_merged.gif', duration=1)
-    elif option == 5:
-        image_set = []
-        values = np.arange(0, 1, 1. / config.sample_num)
-
-        for idx in range(100):
-            print(" [*] %d" % idx)
-            z_sample = np.random.uniform(-1, 1, size=(config.sample_num, gancls.z_dim))
-            _, sample_embed, _, captions \
-                = gancls.dataset.test.next_batch_test(gancls.sample_num, randint(0, gancls.dataset.test.num_examples), 1)
-            sample_embed = np.squeeze(sample_embed, axis=0)
-
-            for kdx, z in enumerate(z_sample):
-                z[idx] = values[kdx]
-
-            image_set.append(sess.run(gancls.sampler, feed_dict={gancls.z_sample: z_sample,
-                                                                 gancls.phi_sample: sample_embed}))
-            make_gif(image_set[-1], './samples/test_gif_%s.gif' % idx)
-
-        new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10])
-                         for idx in chain(range(gancls.sample_num), range(gancls.sample_num - 1, -1, -1))]
-        make_gif(new_image_set, './samples/test_gif_merged.gif', duration=30)
+        new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10]) \
+                         for idx in range(64) + range(63, -1, -1)]
+        make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
 
 
 def image_manifold_size(num_images):
@@ -282,7 +256,6 @@ def preprocess_inception_images(img):
     img = img / 127.5 - 1.
     # print('img', img.shape, img.max(), img.min())
     return img
-
 
 def denormalize_images(images):
     return ((images + 1.0) * 127.5).astype('uint8')

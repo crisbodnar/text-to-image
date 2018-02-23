@@ -12,7 +12,8 @@ def inception_net(images, num_classes, for_training=False, reuse=False):
                                                        dropout_keep_prob=0.8,
                                                        num_classes=num_classes,
                                                        is_training=for_training,
-                                                       reuse=reuse)
+                                                       reuse=reuse,
+                                                       scope='InceptionV3')
 
     return logits, endpoints
 
@@ -23,8 +24,7 @@ def load_inception_inference(sess, num_classes, batch_size, checkpoint_dir):
     inputs = tf.placeholder(tf.float32, [batch_size, 299, 299, 3], name='inputs')
     logits, layers = inception_net(inputs, num_classes)
 
-    t_vars = tf.global_variables()
-    inception_vars = [var for var in t_vars if var.name.startswith('InceptionV3')]
+    inception_vars = tf.global_variables('InceptionV3')
 
     saver = tf.train.Saver(inception_vars)
     print('Restoring Inception model from %s' % checkpoint_dir)
@@ -34,5 +34,4 @@ def load_inception_inference(sess, num_classes, batch_size, checkpoint_dir):
         print(" [*] Load SUCCESS")
     else:
         print(" [!] Load failed...")
-
     return logits, layers

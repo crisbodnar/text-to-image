@@ -14,6 +14,7 @@ FINAL_SIZE_TO_ORIG = {
     299: 360,
 }
 
+
 class Dataset(object):
     def __init__(self, images, imsize, embeddings=None,
                  filenames=None, workdir=None,
@@ -23,7 +24,7 @@ class Dataset(object):
         self._embeddings = embeddings
         self._filenames = filenames
         self.workdir = workdir
-        self._labels = np.array(labels)
+        self._labels = labels
         self._epochs_completed = -1
         self._num_examples = len(images)
         self._saveIDs = self.saveIDs()
@@ -31,7 +32,7 @@ class Dataset(object):
         # shuffle on first run
         self._index_in_epoch = self._num_examples
         self._aug_flag = aug_flag
-        self._class_id = np.array(class_id)
+        self._class_id = class_id
         self._class_range = class_range
         self._imsize = imsize
         self._perm = None
@@ -140,8 +141,8 @@ class Dataset(object):
 
         current_ids = self._perm[start:end]
         sampled_images = self._images[current_ids]
-        sampled_images = sampled_images * (2. / 255) - 1.
         sampled_images = sampled_images.astype(np.float32)
+        sampled_images = sampled_images * (2. / 255) - 1.
         sampled_images = self.transform(sampled_images)
         ret_list = [sampled_images]
 
@@ -151,8 +152,8 @@ class Dataset(object):
             fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
 
             sampled_wrong_images = self._images[fake_ids, :, :, :]
-            sampled_wrong_images = sampled_wrong_images * (2. / 255) - 1.
             sampled_wrong_images = sampled_wrong_images.astype(np.float32)
+            sampled_wrong_images = sampled_wrong_images * (2. / 255) - 1.
             sampled_wrong_images = self.transform(sampled_wrong_images)
             ret_list.append(sampled_wrong_images)
         else:
@@ -187,6 +188,7 @@ class Dataset(object):
 
         sampled_images = self._images[start:end]
         sampled_images = sampled_images.astype(np.float32)
+        sampled_images = sampled_images * (2. / 255) - 1.
         sampled_images = self.transform(sampled_images)
 
         sampled_embeddings = self._embeddings[start:end]
@@ -259,6 +261,8 @@ class TextDataset(object):
             print('list_filenames: ', len(list_filenames), list_filenames[0])
         with open(pickle_path + '/class_info.pickle', 'rb') as f:
             class_id = pickle.load(f)
+            # Bring classes from range [1: 102] to [0: 101]
+            class_id = np.array(class_id) - 1
 
         return Dataset(images, self.image_shape[0], embeddings,
                        list_filenames, self.workdir, class_id,
