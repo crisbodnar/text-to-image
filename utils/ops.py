@@ -63,7 +63,7 @@ def pix_norm(x, eps=1e-8):
 
 
 def pool(x, s=2, p_type='AVG'):
-    return tf.nn.pool(x, window_shape=[1, s, s, 1], pooling_type=p_type, strides=[1, s, s, 1], padding='SAME')
+    return tf.nn.pool(x, window_shape=[s, s], pooling_type=p_type, strides=[s, s], padding='SAME')
 
 
 def resize_nearest_neighbor(x, new_size):

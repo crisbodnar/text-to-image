@@ -22,7 +22,7 @@ from utils.utils import preprocess_inception_images
 
 
 def get_inception_score(images, sess, batch_size, splits, pred_op, verbose=False):
-    # assert(type(images) == list)
+    # assert(type(x) == list)
     assert(type(images[0]) == np.ndarray)
     assert(len(images[0].shape) == 3)
     assert(np.max(images[0]) > 10)

@@ -2,12 +2,12 @@
 # This code is a modification of https://github.com/bioinf-jku/TTUR/blob/master/fid.py
 """ Calculates the Frechet Inception Distance (FID) to evalulate GANs.
 
-The FID metric calculates the distance between two distributions of images.
+The FID metric calculates the distance between two distributions of x.
 Typically, we have summary statistics (mean & covariance matrix) of one
 of these distributions, while the 2nd distribution is given by a GAN.
 
 When run as a stand-alone program, it compares the distribution of
-images that are stored as PNG/JPEG at a specified location with a
+x that are stored as PNG/JPEG at a specified location with a
 distribution given by summary statistics (in pickle format).
 
 The FID is calculated by assuming that X_1 and X_2 are the activations of
@@ -33,8 +33,8 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/model.ckpt',
                            """Path where to read model checkpoints.""")
-tf.app.flags.DEFINE_string('real_img_folder', './test1', """Path where to load the real images """)
-tf.app.flags.DEFINE_string('gen_img_folder', './test2', """Path where to load the generated images """)
+tf.app.flags.DEFINE_string('real_img_folder', './test1', """Path where to load the real x """)
+tf.app.flags.DEFINE_string('gen_img_folder', './test2', """Path where to load the generated x """)
 tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """)  # 20 for flowers
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
 tf.app.flags.DEFINE_integer('gpu', 1, "The ID of GPU to use")
@@ -54,18 +54,18 @@ class InvalidFIDException(Exception):
 
 
 def get_activations(images, sess, batch_size, act_op, verbose=False):
-    """Calculates the activations of the pool_3 layer for all images.
+    """Calculates the activations of the pool_3 layer for all x.
 
     Params:
-    -- images      : Numpy array of dimension (n_images, hi, wi, 3). The values
+    -- x      : Numpy array of dimension (n_images, hi, wi, 3). The values
                      must lie between 0 and 256.
     -- sess        : current session
-    -- batch_size  : the images numpy array is split into batches with batch size
+    -- batch_size  : the x numpy array is split into batches with batch size
                      batch_size. A reasonable batch size depends on the disposable hardware.
     -- verbose    : If set to True and parameter out_step is given, the number of calculated
                      batches is reported.
     Returns:
-    -- A numpy array of dimension (num images, 2048) that contains the
+    -- A numpy array of dimension (num x, 2048) that contains the
        activations of the given tensor when feeding inception with the query tensor.
     """
     assert (type(images[0]) == np.ndarray)
@@ -160,10 +160,10 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
 def calculate_activation_statistics(images, sess, batch_size, act_op, verbose=False):
     """Calculation of the statistics used by the FID.
     Params:
-    -- images      : Numpy array of dimension (n_images, hi, wi, 3). The values
+    -- x      : Numpy array of dimension (n_images, hi, wi, 3). The values
                      must lie between 0 and 255.
     -- sess        : current session
-    -- batch_size  : the images numpy array is split into batches with batch size
+    -- batch_size  : the x numpy array is split into batches with batch size
                      batch_size. A reasonable batch size depends on the available hardware.
     -- verbose     : If set to True and parameter out_step is given, the number of calculated
                      batches is reported.

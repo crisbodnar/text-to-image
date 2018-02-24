@@ -11,7 +11,7 @@ FINAL_SIZE_TO_ORIG = {
     4: 6,
     8: 12,
     16: 22,
-    32: 40,
+    32: 42,
     64: 76,
     128: 152,
     256: 304,
@@ -69,7 +69,7 @@ class Dataset(object):
     def readCaptions(self, filenames, class_id):
         name = filenames
         if name.find('jpg/') != -1:  # flowers dataset
-            class_name = 'class_%05d/' % class_id
+            class_name = 'class_%05d/' % (class_id + 1)  # Class ids are offset by 1 for classification tasks
             name = name.replace('jpg/', class_name)
         cap_path = '%s/text_c10/%s.txt' %\
                    (self.workdir, name)
@@ -123,7 +123,7 @@ class Dataset(object):
 
         :arg batch_size: the size of the batch
         :arg window: the number of embeddings whose mean to be returned (maximum is 5)
-        :arg wrong_img: include the mismatching images in the return list
+        :arg wrong_img: include the mismatching x in the return list
         :arg embeddings: include the text embedding is the return list
         :arg labels: include the class labels in the return list
         """
@@ -253,7 +253,7 @@ class TextDataset(object):
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)
-            print('images: ', images.shape)
+            print('Image shape: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:
             embeddings = pickle.load(f, encoding='bytes')

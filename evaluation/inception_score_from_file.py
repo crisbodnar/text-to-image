@@ -24,7 +24,7 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/',
                            """Path where to read model checkpoints.""")
-tf.app.flags.DEFINE_string('img_folder', './evaluation/data', """Path where to load the images """)
+tf.app.flags.DEFINE_string('img_folder', './evaluation/data', """Path where to load the x """)
 tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """)  # 20 for flowers
 tf.app.flags.DEFINE_integer('splits', 10, """Number of splits """)
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")

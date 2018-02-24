@@ -2,9 +2,9 @@ CONFIG_NAME: 'PGGAN'
 DATASET_NAME: 'flowers'
 
 DATASET_DIR: './data/flowers/'
-CHECKPOINT_DIR: './checkpoints/PGGAN/flowers/'
-LOGS_DIR: './logs/PGGAN_logs/'
-SAMPLE_DIR: './samples/PGGAN/flowers/'
+CHECKPOINT_DIR: './checkpoints/PGGAN/flowers'
+LOGS_DIR: './logs/PGGAN_logs'
+SAMPLE_DIR: './samples/PGGAN/flowers'
 
 MODEL:
   Z_DIM: 512 # Dimension of the noise vector

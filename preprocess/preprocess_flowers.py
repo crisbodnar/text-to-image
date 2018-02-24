@@ -7,8 +7,8 @@ from preprocess.utils import get_image
 import scipy.misc
 
 # Edit this list to specify which files to be created
-IMG_SIZES = [6, 12, 22, 40]
-LOAD_SIZE = IMG_SIZES[-1]
+IMG_SIZES = [42]
+LOAD_SIZE = 350
 FLOWER_DIR = './data/flowers'
 
 

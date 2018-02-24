@@ -11,8 +11,8 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoints/inception/flowers/model.ckpt',
                            """Path where to read model checkpoints.""")
-tf.app.flags.DEFINE_string('real_img_folder', './evaluation/data/gen/', """Path where to load the real images """)
-tf.app.flags.DEFINE_string('gen_img_folder', './evaluation/data/real/', """Path where to load the real images """)
+tf.app.flags.DEFINE_string('real_img_folder', './evaluation/data/gen/', """Path where to load the real x """)
+tf.app.flags.DEFINE_string('gen_img_folder', './evaluation/data/real/', """Path where to load the real x """)
 tf.app.flags.DEFINE_integer('num_classes', 20, """Number of classes """)  # 20 for flowers
 tf.app.flags.DEFINE_integer('splits', 10, """Number of splits """)
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
@@ -22,8 +22,8 @@ tf.app.flags.DEFINE_integer('gpu', 1, "The ID of GPU to use")
 def get_cosine_dist(real_img_act, gen_img_act):
     """
     Computes the Inception Match Distance
-    :param gen_img_act: A batch of mixed['pre_logits'] activations for the generated images
-    :param real_img_act: A batch of mixed['pre_logits'] activations for the real images
+    :param gen_img_act: A batch of mixed['pre_logits'] activations for the generated x
+    :param real_img_act: A batch of mixed['pre_logits'] activations for the real x
     :return: The inception match score
     """
 

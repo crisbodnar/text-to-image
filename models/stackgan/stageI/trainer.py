@@ -97,7 +97,7 @@ class ConditionalGanTrainer(object):
         print(sample_embed.shape)
 
         # Display the captions of the sampled images
-        print('\nCaptions of the sampled images:')
+        print('\nCaptions of the sampled x:')
         for caption_idx, caption_batch in enumerate(captions):
             print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
         print()
@@ -155,7 +155,7 @@ class ConditionalGanTrainer(object):
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 
                         # Display the captions of the sampled images
-                        print('\nCaptions of the sampled images:')
+                        print('\nCaptions of the sampled x:')
                         for caption_idx, caption_batch in enumerate(captions):
                             print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
                         print()

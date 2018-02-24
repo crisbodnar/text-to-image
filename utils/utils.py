@@ -69,7 +69,7 @@ def merge(images, size):
             img[j * h:j * h + h, i * w:i * w + w] = image[:, :, 0]
         return img
     else:
-        raise ValueError('in merge(images,size) images parameter '
+        raise ValueError('in merge(x,size) x parameter '
                          'must have dimensions: HxW or HxWx3 or HxWx4')
 
 
@@ -218,7 +218,7 @@ def save_captions(directory: str, captions):
         os.remove(filepath)
 
     with open(filepath, 'w+') as f:
-        f.write('Captions of the sampled images:\n')
+        f.write('Captions of the sampled x:\n')
         for idx, caption in enumerate(captions):
             f.write('{}: {}\n'.format(idx + 1, caption[0]))
 
@@ -240,7 +240,7 @@ def load_inception_data(full_path, alphabetic=False):
                 if os.path.isfile(filename):
                     img = scipy.misc.imread(filename)
                     images.append(img)
-    print('images', len(images), images[0].shape)
+    print('x', len(images), images[0].shape)
     return images
 
 

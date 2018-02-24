@@ -29,11 +29,11 @@ class WGanClsEval(object):
 
 
         if not os.path.exists(self.cfg.EVAL.ACT_STAT_PATH):
-            print('Computing activation statistics for real images')
+            print('Computing activation statistics for real x')
             fid.compute_and_save_activation_statistics(self.cfg.EVAL.R_IMG_PATH, self.sess, incep_batch_size, act_op,
                                                        self.cfg.EVAL.ACT_STAT_PATH, verbose=True)
 
-        print('Loading activation statistics for the real images')
+        print('Loading activation statistics for the real x')
         stats = np.load(self.cfg.EVAL.ACT_STAT_PATH)
         mu_real = stats['mu']
         sigma_real = stats['sigma']
@@ -50,7 +50,7 @@ class WGanClsEval(object):
             print(" [!] Load failed...")
             raise RuntimeError('Could not load the checkpoints of the generator')
 
-        print('Generating images...')
+        print('Generating x...')
 
         fid_size = self.cfg.EVAL.SIZE
         n_batches = fid_size // self.bs
@@ -66,7 +66,7 @@ class WGanClsEval(object):
 
             samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
 
-        print('Computing activation statistics for generated images...')
+        print('Computing activation statistics for generated x...')
         mu_gen, sigma_gen = fid.calculate_activation_statistics(samples, self.sess, incep_batch_size, act_op,
                                                                 verbose=True)
         print("calculate FID:", end=" ", flush=True)
@@ -96,7 +96,7 @@ class WGanClsEval(object):
             print(" [!] Load failed...")
             raise RuntimeError('Could not load the checkpoints of the generator')
 
-        print('Generating images...')
+        print('Generating x...')
 
         size = self.cfg.EVAL.SIZE
         n_batches = size // self.bs
