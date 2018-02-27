@@ -262,6 +262,18 @@ def denormalize_images(images):
     return ((images + 1.0) * 127.5).astype('uint8')
 
 
+def initialize_uninitialized(sess, verbose=True):
+    global_vars = tf.global_variables()
+    is_not_initialized = sess.run([tf.is_variable_initialized(var) for var in global_vars])
+    not_initialized_vars = [v for (v, f) in zip(global_vars, is_not_initialized) if not f]
+
+    if verbose:
+        print('Initializing the following %d variables:\n' % len(not_initialized_vars))
+        print_vars(not_initialized_vars)
+    if len(not_initialized_vars):
+        sess.run(tf.variables_initializer(not_initialized_vars))
+
+
 def print_vars(vars):
     for var in vars:
         print(var.name)

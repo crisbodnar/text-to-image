@@ -49,9 +49,9 @@ def layer_norm(x, act=None, scope=None):
     return tf.contrib.layers.layer_norm(x, activation_fn=act, scope=scope)
 
 
-def fc(x, units, act=None, init=None, bias=True, name=None):
+def fc(x, units, act=None, init=None, bias=True, name=None, wdecay=4e-5):
     if init is None:
-        init = tf.contrib.layers.xavier_initializer()
+        init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init, use_bias=bias, name=name)
 
 

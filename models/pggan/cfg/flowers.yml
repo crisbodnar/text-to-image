@@ -1,4 +1,4 @@
-CONFIG_NAME: 'PGGAN'
+CONFIG_NAME: 'PGGAN_decent'
 DATASET_NAME: 'flowers'
 
 DATASET_DIR: './data/flowers/'

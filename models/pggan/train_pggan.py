@@ -57,8 +57,6 @@ if __name__ == "__main__":
         filename_train = '%s/train' % datadir
         dataset.train = dataset.get_data(filename_train)
 
-        tf.reset_default_graph()
-
         pggan = PGGAN(batch_size=batch_size, max_iters=max_iters,
                       model_path=pggan_checkpoint_dir_write, read_model_path=pggan_checkpoint_dir_read,
                       data=dataset, sample_size=sample_size,

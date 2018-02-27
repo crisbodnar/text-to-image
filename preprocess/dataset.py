@@ -69,7 +69,7 @@ class Dataset(object):
     def readCaptions(self, filenames, class_id):
         name = filenames
         if name.find('jpg/') != -1:  # flowers dataset
-            class_name = 'class_%05d/' % (class_id + 1)  # Class ids are offset by 1 for classification tasks
+            class_name = 'class_%05d/' % (class_id + 1) # Class
             name = name.replace('jpg/', class_name)
         cap_path = '%s/text_c10/%s.txt' %\
                    (self.workdir, name)
@@ -253,7 +253,7 @@ class TextDataset(object):
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)
-            print('Image shape: ', images.shape)
+            print('x: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:
             embeddings = pickle.load(f, encoding='bytes')
