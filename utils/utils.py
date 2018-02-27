@@ -257,6 +257,12 @@ def preprocess_inception_images(img):
     # print('img', img.shape, img.max(), img.min())
     return img
 
+
 def denormalize_images(images):
     return ((images + 1.0) * 127.5).astype('uint8')
+
+
+def print_vars(vars):
+    for var in vars:
+        print(var.name)
 

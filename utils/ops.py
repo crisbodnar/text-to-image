@@ -21,19 +21,20 @@ def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
                                         param_initializers=init,
                                         is_training=train,
                                         scope=name,
+                                        fused=True,
                                         activation_fn=act)
 
 
 def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
     if init is None:
-        init = tf.contrib.layers.xavier_initializer_conv2d()
+        init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.conv2d(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
                             kernel_initializer=init, name=name)
 
 
 def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
     if init is None:
-        init = tf.contrib.layers.xavier_initializer_conv2d()
+        init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
                                       kernel_initializer=init, name=name)
 
@@ -58,7 +59,9 @@ def lrelu_act(alpha=0.2):
     return lambda x: tf.nn.leaky_relu(x, alpha)
 
 
-def pix_norm(x, eps=1e-8):
+def pix_norm(x, eps=1e-8, act=None):
+    if act is not None:
+        x = act(x)
     return x / tf.sqrt(tf.reduce_mean(x**2, axis=3, keep_dims=True) + eps)
 
 

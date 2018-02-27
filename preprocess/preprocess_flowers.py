@@ -7,8 +7,8 @@ from preprocess.utils import get_image
 import scipy.misc
 
 # Edit this list to specify which files to be created
-IMG_SIZES = [42]
-LOAD_SIZE = 350
+IMG_SIZES = [4, 8, 16, 32]
+LOAD_SIZE = 64
 FLOWER_DIR = './data/flowers'
 
 
@@ -35,7 +35,7 @@ def save_data_list(inpath, outpath, filenames):
 
         cnt += 1
         if cnt % 100 == 0:
-            print('Load %d......' % cnt)
+            print('Load %d......' % cnt, flush=True)
 
     print(len(images[0]), 'images processed')
     print('Image sizes:', IMG_SIZES)

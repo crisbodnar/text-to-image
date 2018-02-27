@@ -22,14 +22,19 @@ if __name__ == "__main__":
         cfg = config_from_yaml(FLAGS.cfg)
 
         batch_size = 16
-        max_iters = 35000
+        max_iters = 37500
         sample_size = 512
         GAN_learn_rate = 1e-4
 
         pggan_checkpoint_dir_write = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage[i])
-        sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage%d' % i)
         pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % prev_stage[i])
-        logs_dir = os.path.join(cfg.LOGS_DIR, 'stage%d/' % stage[i])
+
+        if t:
+            sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage_t%d/' % stage[i])
+            logs_dir = os.path.join(cfg.LOGS_DIR, 'stage_t%d/' % stage[i])
+        else:
+            sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage%d/' % stage[i])
+            logs_dir = os.path.join(cfg.LOGS_DIR, 'stage%d/' % stage[i])
 
         if not os.path.exists(pggan_checkpoint_dir_write):
             os.makedirs(pggan_checkpoint_dir_write)
@@ -52,10 +57,12 @@ if __name__ == "__main__":
         filename_train = '%s/train' % datadir
         dataset.train = dataset.get_data(filename_train)
 
+        tf.reset_default_graph()
+
         pggan = PGGAN(batch_size=batch_size, max_iters=max_iters,
                       model_path=pggan_checkpoint_dir_write, read_model_path=pggan_checkpoint_dir_read,
                       data=dataset, sample_size=sample_size,
-                      sample_path=sample_path, log_dir=cfg.LOGS_DIR, learn_rate=GAN_learn_rate, stage=stage[i],
+                      sample_path=sample_path, log_dir=logs_dir, learn_rate=GAN_learn_rate, stage=stage[i],
                       t=t)
 
         pggan.train()
