@@ -36,7 +36,7 @@ TRAIN:
     LAMBDA: 10.0
 
 EVAL:
-  FLAG: True
+  FLAG: False
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64

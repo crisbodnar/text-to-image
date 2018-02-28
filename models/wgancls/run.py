@@ -31,13 +31,13 @@ def main(_):
     run_config.gpu_options.allow_growth = True
 
     datadir = cfg.DATASET_DIR
-    dataset = TextDataset(datadir, 299)
+    dataset = TextDataset(datadir, 64)
 
     filename_test = '%s/test' % datadir
     dataset.test = dataset.get_data(filename_test)
 
-    # filename_train = '%s/train' % datadir
-    # dataset.train = dataset.get_data(filename_train)
+    filename_train = '%s/train' % datadir
+    dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
         if cfg.EVAL.FLAG:

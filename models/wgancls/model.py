@@ -49,7 +49,7 @@ class WGanCls(object):
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
         self.Dg, self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False)
         self.Dx, self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True)
-        _, _, self.Dxm_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
+        _, _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
         self.Dx_hat, self.Dx_hat_logit, _ = self.discriminator(self.x_hat, self.cond, reuse=True)
@@ -68,12 +68,11 @@ class WGanCls(object):
         self.D_loss_real_match = -tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
         self.Dm_loss = \
-            tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxm_logit,
-                                                                   labels=tf.zeros_like(self.Dxm_logit))) \
+            tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxmi_logit,
+                                                                   labels=tf.zeros_like(self.Dxmi_logit))) \
             + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
-                                                                    labels=tf.ones_like(self.Dxma_logit)))
-        self.Gm_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dgm_logit,
-                                                                    labels=tf.ones_like(self.Dgm_logit)))
+                                                                     labels=tf.ones_like(self.Dxma_logit)))
+        self.Gm_loss = -tf.reduce_mean(self.Dgm_logit)
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
 
         grad_Dx_hat = tf.gradients(self.Dx_hat_logit, [self.x_hat])[0]
@@ -81,7 +80,7 @@ class WGanCls(object):
         self.gradient_penalty = tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
 
         self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty + self.Dm_loss
-        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 0.1 * self.Gm_loss
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 0.5 * self.Gm_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
         decay = 1
