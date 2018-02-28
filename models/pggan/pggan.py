@@ -1,7 +1,7 @@
 import tensorflow as tf
 import time
 
-from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm
+from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm, batch_norm, pix_norm
 from utils.utils import save_images, image_manifold_size, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
@@ -99,9 +99,9 @@ class PGGAN(object):
         self.D_optimizer = tf.train.AdamOptimizer(0.00001, beta1=0.5, beta2=0.9)
         self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
 
-        self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
-        # update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies([self.alpha_assign]):
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops + [self.alpha_assign]):
+            self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
             self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
         # variables to save
@@ -229,7 +229,7 @@ class PGGAN(object):
 
         tf.reset_default_graph()
 
-    def discriminator(self, inp, cond, stages, t, reuse=False):
+    def discriminator(self, inp, cond, stages, t, reuse=False, is_train=True):
         alpha_trans = self.alpha_tra
         with tf.variable_scope("d_net", reuse=reuse):
             conv_iden = None
@@ -250,8 +250,12 @@ class PGGAN(object):
                     conv = tf.multiply(alpha_trans, conv) + tf.multiply(tf.subtract(1., alpha_trans), conv_iden)
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
+                concat = self.concat_cond(conv, cond)
+                concat = tf.layers.dropout(concat, rate=0.1, training=is_train)
+
+
                 # Real/False branch
-                conv_b1 = conv2d(conv, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                conv_b1 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
                 conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
@@ -259,7 +263,6 @@ class PGGAN(object):
                 output_b1 = fc(conv_b1, units=1)
 
                 # Match/Mismatch branch
-                concat = self.concat_cond(conv, cond)
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b2 = layer_norm(conv_b2, act=lrelu_act())
                 conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
@@ -282,7 +285,7 @@ class PGGAN(object):
 
                 de = self.concat_cond(de, cond)
                 de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                de = layer_norm(de, act=lrelu_act())
+                de = pix_norm(de, act=lrelu_act())
 
             de_iden = None
             for i in range(1, stages):
@@ -295,9 +298,9 @@ class PGGAN(object):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     de = upscale(de, 2)
                     de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = layer_norm(de, act=lrelu_act())
+                    de = pix_norm(de, act=lrelu_act())
                     de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = layer_norm(de, act=lrelu_act())
+                    de = pix_norm(de, act=lrelu_act())
 
             de = self.to_rgb(de, stages - 1)
 

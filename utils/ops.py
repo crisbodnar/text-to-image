@@ -1,5 +1,8 @@
 import tensorflow as tf
 
+NHWC = 'NHWC'
+NCHW = 'NCHW'
+
 
 def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
     """
@@ -23,6 +26,32 @@ def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
                                         scope=name,
                                         fused=True,
                                         activation_fn=act)
+
+
+def batch_renorm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9, df=NHWC):
+    """
+    A batch normalization layer with input x
+
+    Parameters:
+        x: Input tensor
+        train: True if this layer is currently used during training (false for testing)
+        init: A dictionary which can contain the keys "gamma" and "beta" specifying the gamma and beta
+                      init
+        act: The activation function of the layer
+        name: Name of the layer
+    """
+
+    return tf.contrib.layers.batch_norm(x,
+                                        decay=decay,
+                                        epsilon=eps,
+                                        scale=True,
+                                        param_initializers=init,
+                                        is_training=train,
+                                        scope=name,
+                                        fused=True,
+                                        activation_fn=act,
+                                        renorm=True,
+                                        data_format=df)
 
 
 def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
