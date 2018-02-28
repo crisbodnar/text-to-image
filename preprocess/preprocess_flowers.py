@@ -5,45 +5,49 @@ import os
 import pickle
 from preprocess.utils import get_image
 import scipy.misc
+import numpy as np
 
 # Edit this list to specify which files to be created
-IMG_SIZES = [4, 8, 16, 32]
-LOAD_SIZE = 64
+IMG_SIZES = [42]
+LOAD_SIZE = 100
 FLOWER_DIR = './data/flowers'
 
 
 def load_filenames(data_dir):
     filepath = data_dir + 'filenames.pickle'
+    filenames = []
     with open(filepath, 'rb') as f:
-        filenames = pickle.load(f)
+        for filename in pickle.load(f):
+            filenames.append(filename)
     print('Load filenames from: %s (%d)' % (filepath, len(filenames)))
     return filenames
 
 
 def save_data_list(inpath, outpath, filenames):
-    images = [[], [], [], []]
-    cnt = 0
-    for key in filenames:
-        f_name = '%s/%s.jpg' % (inpath, key)
-        img = get_image(f_name, LOAD_SIZE, is_crop=False)
-        img = img.astype('uint8')
 
-        for idx, size in enumerate(IMG_SIZES):
+    for size in IMG_SIZES:
+        print('Processing images of size %d' % size)
+
+        cnt = 0
+        images = np.ndarray(shape=(len(filenames), size, size, 3), dtype=np.uint8)
+        for idx, key in enumerate(filenames):
+            f_name = '%s/%s.jpg' % (inpath, key)
+            img = get_image(f_name, LOAD_SIZE, is_crop=False)
+            img = img.astype('uint8')
+
             if size != LOAD_SIZE:
                 img = scipy.misc.imresize(img, [size, size], 'bicubic')
-            images[idx].append(img)
+            images[idx, :, :, :] = np.array(img)
 
-        cnt += 1
-        if cnt % 100 == 0:
-            print('Load %d......' % cnt, flush=True)
+            cnt += 1
+            if cnt % 100 == 0:
+                print('\rLoad %d......' % cnt, flush=True)
 
-    print(len(images[0]), 'images processed')
-    print('Image sizes:', IMG_SIZES)
+        print('Images processed: %d', len(filenames))
 
-    for idx, size in enumerate(IMG_SIZES):
         outfile = outpath + str(size) + 'images.pickle'
         with open(outfile, 'wb') as f_out:
-            pickle.dump(images[idx], f_out)
+            pickle.dump(images, f_out)
             print('save to: ', outfile)
 
 

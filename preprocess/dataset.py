@@ -11,11 +11,12 @@ FINAL_SIZE_TO_ORIG = {
     4: 4,
     8: 8,
     16: 16,
-    32: 32,
+    32: 42,
     64: 76,
     128: 152,
     256: 304,
     299: 360,
+    512: 600,
 }
 
 
@@ -69,7 +70,7 @@ class Dataset(object):
     def readCaptions(self, filenames, class_id):
         name = filenames
         if name.find('jpg/') != -1:  # flowers dataset
-            class_name = 'class_%05d/' % (class_id + 1) # Class
+            class_name = 'class_%05d/' % (class_id + 1)  # Class ids are offset by 1 for classification tasks
             name = name.replace('jpg/', class_name)
         cap_path = '%s/text_c10/%s.txt' %\
                    (self.workdir, name)
@@ -87,9 +88,10 @@ class Dataset(object):
                 w1 = int(np.floor((ori_size - self._imsize) * np.random.random()))
                 cropped_image = images[i][w1: w1 + self._imsize, h1: h1 + self._imsize, :]
                 if random.random() > 0.5:
-                    transformed_images[i] = np.fliplr(cropped_image)
-                else:
-                    transformed_images[i] = cropped_image
+                    cropped_image = np.fliplr(cropped_image)
+                if self._imsize < 64 and random.random() > 0.5:
+                    cropped_image = np.flipud(cropped_image)
+                transformed_images[i] = cropped_image
             return transformed_images
         else:
             return images
@@ -253,7 +255,7 @@ class TextDataset(object):
         with open(pickle_path + self.image_filename, 'rb') as f:
             images = pickle.load(f)
             images = np.array(images)
-            print('x: ', images.shape)
+            print('Image shape: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:
             embeddings = pickle.load(f, encoding='bytes')

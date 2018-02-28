@@ -97,7 +97,7 @@ class PGGAN(object):
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
         self.D_optimizer = tf.train.AdamOptimizer(0.00001, beta1=0.5, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0005, beta1=0.5, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
 
         self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
         # update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -301,10 +301,8 @@ class PGGAN(object):
 
             de = self.to_rgb(de, stages - 1)
 
-            if stages == 1:
-                return de, mean, log_sigma
             if t:
-                de = tf.multiply(tf.subtract(1., alpha_trans), de_iden) + tf.multiply(alpha_trans, de), mean, log_sigma
+                de = tf.multiply(tf.subtract(1., alpha_trans), de_iden) + tf.multiply(alpha_trans, de)
 
             return de, mean, log_sigma
 

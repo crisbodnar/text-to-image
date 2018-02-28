@@ -12,10 +12,10 @@ FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
 
-    stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]
-    prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]
+    stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]
+    prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7]
 
-    for i in range(0, len(stage)):
+    for i in range(6, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
