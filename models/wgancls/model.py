@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils.ops import conv2d, conv2d_transpose, layer_norm, batch_norm, fc
+from utils.ops import conv2d, conv2d_transpose, layer_norm, batch_norm, fc, lrelu_act, minibatch_state_concat
 
 
 class WGanCls(object):
@@ -24,9 +24,6 @@ class WGanCls(object):
         self.df_dim = cfg.MODEL.DF_DIM
         
         self.image_dims = [cfg.MODEL.IMAGE_SHAPE.H, cfg.MODEL.IMAGE_SHAPE.W, cfg.MODEL.IMAGE_SHAPE.D]
-        
-        self.conv_init = tf.contrib.layers.xavier_initializer_conv2d()
-        self.fc_init = tf.contrib.layers.xavier_initializer()
 
         self.global_step = tf.Variable(0, trainable=False)
 
@@ -47,40 +44,48 @@ class WGanCls(object):
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
-        self.Dg, self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False)
-        self.Dx, self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True)
-        _, _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
+        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False)
+        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True)
+        _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
-        self.Dx_hat, self.Dx_hat_logit, _ = self.discriminator(self.x_hat, self.cond, reuse=True)
+        self.Dx_hat_logit, self.Dxma_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, sampler=True,
-                                            is_training=False)
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, is_training=False)
 
         self.d_vars = tf.trainable_variables('d_net')
         self.g_vars = tf.trainable_variables('g_net')
 
+    def get_gradient_penalty(self, x, y):
+        grad_y = tf.gradients(y, [x])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
+        return tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
+
     def define_losses(self):
         # Define the final losses
         kl_coeff = self.cfg.TRAIN.COEFF.KL
-        lambda_coeff = self.cfg.TRAIN.COEFF.LAMBDA
+        lambda1 = self.cfg.TRAIN.COEFF.LAMBDA
+        lambda2 = 10.0
 
-        self.D_loss_real_match = -tf.reduce_mean(self.Dx_logit)
+        self.D_loss_real = tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
+        self.wdist = self.D_loss_real - self.D_loss_fake
         self.Dm_loss = \
             tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxmi_logit,
                                                                    labels=tf.zeros_like(self.Dxmi_logit))) \
             + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
                                                                      labels=tf.ones_like(self.Dxma_logit)))
-        self.Gm_loss = -tf.reduce_mean(self.Dgm_logit)
+        self.Gm_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+            logits=self.Dgm_logit,
+            labels=tf.ones_like(self.Dgm_logit)
+        ))
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
 
-        grad_Dx_hat = tf.gradients(self.Dx_hat_logit, [self.x_hat])[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_Dx_hat), reduction_indices=[1, 2, 3]))
-        self.gradient_penalty = tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
+        self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
+        self.match_gp = self.get_gradient_penalty(self.x_hat, self.Dxma_hat_logit)
 
-        self.D_loss = (self.D_loss_real_match + self.D_loss_fake) + lambda_coeff * self.gradient_penalty + self.Dm_loss
-        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 0.5 * self.Gm_loss
+        self.D_loss = -self.wdist + lambda1 * self.real_gp + lambda2 * self.match_gp + 5 * self.Dm_loss
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 5 * self.Gm_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
         decay = 1
@@ -103,8 +108,8 @@ class WGanCls(object):
         lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
 
         embeddings = tf.layers.flatten(embeddings)
-        mean = fc(embeddings, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
-        log_sigma = fc(embeddings, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
+        mean = fc(embeddings, self.compressed_embed_dim, act=lrelu)
+        log_sigma = fc(embeddings, self.compressed_embed_dim, act=lrelu)
         return mean, log_sigma
 
     def sample_normal_conditional(self, mean, log_sigma):
@@ -116,50 +121,77 @@ class WGanCls(object):
         loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
         loss = tf.reduce_mean(loss)
         return loss
+    
+    def realism_branch(self, x, f):
+        conv = conv2d(x, f=f, ks=(3, 3), s=(1, 1))
+        conv = layer_norm(conv, act=tf.nn.relu)
+        conv = conv2d(conv, f=f, ks=(4, 4), s=(1, 1), padding='VALID')
+        conv = layer_norm(conv, act=tf.nn.relu)
+        conv = tf.reshape(conv, [-1, f])
+        out = fc(conv, units=1, bias=False)
+        return out
+
+    def match_branch(self, x, f):
+        conv = conv2d(x, f=f, ks=(3, 3), s=(1, 1))
+        conv = layer_norm(conv, act=tf.nn.relu)
+        conv = conv2d(conv, f=f, ks=(4, 4), s=(1, 1), padding='VALID')
+        conv = layer_norm(conv, act=tf.nn.relu)
+        conv = tf.reshape(conv, [-1, f])
+        out = fc(conv, units=1, bias=False)
+        return out
 
     def discriminator(self, inputs, embed, reuse=False):
-        s16 = self.output_size / 16
-        lrelu = lambda l: tf.nn.leaky_relu(l, 0.2)
+        lrelu = lrelu_act()
         
         with tf.variable_scope("d_net", reuse=reuse):
-            net_ho = conv2d(inputs, self.df_dim, ks=(4, 4), s=(2, 2), act=lrelu, init=self.conv_init)
-            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), init=self.conv_init)
+            net_h0 = conv2d(inputs, self.df_dim, ks=(1, 1), s=(1, 1), act=lrelu)
+            net_h0 = conv2d(net_h0, self.df_dim, ks=(4, 4), s=(2, 2), act=lrelu)
+            net_h0 = layer_norm(net_h0)
+
+            net_h1 = conv2d(net_h0, self.df_dim * 2, ks=(4, 4), s=(2, 2))
             net_h1 = layer_norm(net_h1, act=lrelu)
-            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), init=self.conv_init)
-            net_h2 = layer_norm(net_h2, act=lrelu)
-            net_h3 = conv2d(net_h2, self.df_dim * 8, ks=(4, 4), s=(2, 2), init=self.conv_init)
+            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2))
+            net_h2 = layer_norm(net_h2)
+
+            # Residual layer
+            net = conv2d(net_h2, self.df_dim * 4, ks=(3, 3), s=(1, 1))
+            net = layer_norm(net, act=lrelu)
+            net = conv2d(net, self.df_dim * 4, ks=(3, 3), s=(1, 1))
+            net = layer_norm(net)
+            net_h3 = tf.add(net_h2, net)
+            net_h3 = tf.nn.leaky_relu(net_h3, 0.2)
+            # --------------------------------------------------------
+
+            net_h3 = conv2d(net_h3, self.df_dim * 8, ks=(4, 4), s=(2, 2))
             net_h3 = layer_norm(net_h3)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
+            net = conv2d(net_h3, self.df_dim * 8, ks=(3, 3), s=(1, 1))
             net = layer_norm(net, act=lrelu)
-            net = conv2d(net, self.df_dim * 2, ks=(3, 3), s=(1, 1), init=self.conv_init)
-            net = layer_norm(net, act=lrelu)
-            net = conv2d(net, self.df_dim * 8, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net = conv2d(net, self.df_dim * 8, ks=(3, 3), s=(1, 1))
             net = layer_norm(net)
             net_h4 = tf.add(net_h3, net)
             net_h4 = tf.nn.leaky_relu(net_h4, 0.2)
             # --------------------------------------------------------
 
+            # Append variance statistics
+            net_h4 = minibatch_state_concat(net_h4)
+
             # Compress embeddings
-            net_embed = fc(embed, self.compressed_embed_dim, act=lrelu, init=self.fc_init)
+            net_embed = fc(embed, self.compressed_embed_dim, act=lrelu)
 
             # Append embeddings in depth
-            net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
+            net_embed = tf.expand_dims(tf.expand_dims(net_embed, 1), 1)
+            net_embed = tf.tile(net_embed, [1, 4, 4, 2])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
-            net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
-            net_h4 = layer_norm(net_h4, act=lrelu)
-            net_h4 = conv2d(net_h4, self.df_dim * 8, ks=(2, 2), s=(1, 1), init=self.conv_init)
-            net_h4 = layer_norm(net_h4, act=lrelu)
+            rnet_logits = self.realism_branch(net_h4_concat, self.df_dim * 8)
+            mnet_logits = self.match_branch(net_h4_concat, self.df_dim * 8)
 
-            net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
-            mnet_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.conv_init)
+            return rnet_logits, mnet_logits
 
-            return tf.nn.sigmoid(net_logits), net_logits, mnet_logits
-
-    def generator(self, z, embed, reuse=False, sampler=False, is_training=True):
+    def generator(self, z, embed, reuse=False, is_training=True):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -171,48 +203,48 @@ class WGanCls(object):
 
             # Concatenate the sampled embedding with the z vector
             net_input = tf.concat([z, net_embed], 1)
-            net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None, init=self.fc_init)
+            net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None)
             net_h0 = batch_norm(net_h0, train=is_training, act=None)
             # --------------------------------------------------------
             net_h0 = tf.reshape(net_h0, [-1, s16, s16, self.gf_dim * 8])
 
             # Residual layer
-            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
+            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid')
             net = batch_norm(net, train=is_training, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1))
             net = batch_norm(net, train=is_training, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same', init=self.conv_init)
+            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same')
             net = batch_norm(net, train=is_training, act=None)
             net_h1 = tf.add(net_h0, net)
             net_h1 = tf.nn.relu(net_h1)
             # --------------------------------------------------------
 
-            net_h2 = conv2d_transpose(net_h1, self.gf_dim * 4, ks=(4, 4), s=(2, 2), init=self.conv_init)
-            net_h2 = conv2d(net_h2, self.gf_dim * 4, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net_h2 = conv2d_transpose(net_h1, self.gf_dim * 4, ks=(4, 4), s=(2, 2))
+            net_h2 = conv2d(net_h2, self.gf_dim * 4, ks=(3, 3), s=(1, 1))
             net_h2 = batch_norm(net_h2, train=is_training, act=None)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', init=self.conv_init)
+            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid')
             net = batch_norm(net, train=is_training, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1))
             net = batch_norm(net, train=is_training, act=tf.nn.relu)
-            net = conv2d(net, self.gf_dim * 4, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net = conv2d(net, self.gf_dim * 4, ks=(3, 3), s=(1, 1))
             net = batch_norm(net, train=is_training, act=None)
             net_h3 = tf.add(net_h2, net)
             net_h3 = tf.nn.relu(net_h3)
             # --------------------------------------------------------
 
-            net_h4 = conv2d_transpose(net_h3, self.gf_dim * 2, ks=(4, 4), s=(2, 2), init=self.conv_init)
-            net_h4 = conv2d(net_h4, self.gf_dim * 2, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net_h4 = conv2d_transpose(net_h3, self.gf_dim * 2, ks=(4, 4), s=(2, 2))
+            net_h4 = conv2d(net_h4, self.gf_dim * 2, ks=(3, 3), s=(1, 1))
             net_h4 = batch_norm(net_h4, train=is_training, act=tf.nn.relu)
 
-            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2), init=self.conv_init)
-            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2))
+            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1))
             net_h5 = batch_norm(net_h5, train=is_training, act=tf.nn.relu)
 
-            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2), init=self.conv_init)
-            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1), init=self.conv_init)
+            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2))
+            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1))
 
             net_output = tf.nn.tanh(net_logits)
             return net_output, mean, log_sigma

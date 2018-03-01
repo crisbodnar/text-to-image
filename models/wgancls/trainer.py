@@ -27,15 +27,17 @@ class WGanClsTrainer(object):
             tf.summary.scalar('Gm_loss', self.model.Gm_loss),
             tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
-            tf.summary.scalar('d_lr', self.model.d_lr),
-            tf.summary.scalar('g_lr', self.model.g_lr),
+            # tf.summary.scalar('d_lr', self.model.d_lr),
+            # tf.summary.scalar('g_lr', self.model.g_lr),
 
-            tf.summary.scalar('D_loss_real_match', self.model.D_loss_real_match),
+            tf.summary.scalar('D_loss_real', self.model.D_loss_real),
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
-            tf.summary.scalar('D_grad_penalty', self.model.gradient_penalty),
+            tf.summary.scalar('real_gp', self.model.real_gp),
+            tf.summary.scalar('match_gp', self.model.match_gp),
             tf.summary.scalar('neg_d_loss', -self.model.D_loss),
             tf.summary.scalar('D_loss', self.model.D_loss),
             tf.summary.scalar('Dm_loss', self.model.Dm_loss),
+            tf.summary.scalar('wdist', self.model.wdist),
         ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
