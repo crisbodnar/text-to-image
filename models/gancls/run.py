@@ -1,5 +1,6 @@
 import os
 
+from models.gancls.eval_gancls import GanClsEval
 from models.gancls.model import GanCls
 from models.gancls.trainer import GanClsTrainer
 from models.gancls.visualizer import GanClsVisualizer
@@ -31,7 +32,7 @@ def main(_):
     run_config.gpu_options.allow_growth = True
 
     datadir = cfg.DATASET_DIR
-    dataset = TextDataset(datadir, 1)
+    dataset = TextDataset(datadir, 64)
 
     filename_test = '%s/test' % datadir
     dataset._test = dataset.get_data(filename_test)
@@ -40,10 +41,18 @@ def main(_):
     dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
-        gancls = GanCls(cfg)
-        show_all_variables()
 
-        if cfg.TRAIN.FLAG:
+        if cfg.EVAL.FLAG:
+            gancls = GanCls(cfg, build_model=False)
+            eval = GanClsEval(
+                sess=sess,
+                model=gancls,
+                dataset=dataset,
+                cfg=cfg)
+            eval.evaluate_inception()
+        elif cfg.TRAIN.FLAG:
+            gancls = GanCls(cfg)
+            show_all_variables()
             gancls_trainer = GanClsTrainer(
                 sess=sess,
                 model=gancls,
@@ -52,6 +61,8 @@ def main(_):
             )
             gancls_trainer.train()
         else:
+            gancls = GanCls(cfg)
+            show_all_variables()
             gancls_visualiser = GanClsVisualizer(
                 sess=sess,
                 model=gancls,

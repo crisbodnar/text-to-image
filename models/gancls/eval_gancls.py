@@ -1,6 +1,6 @@
 from random import randint
 
-from models.wgancls.model import WGanCls
+from models.gancls.model import GanCls
 from utils.saver import load
 from utils.utils import denormalize_images
 from preprocess.dataset import TextDataset
@@ -11,8 +11,8 @@ from models.inception.model import load_inception_inference
 import os
 
 
-class WGanClsEval(object):
-    def __init__(self, sess: tf.Session, model: WGanCls, dataset: TextDataset, cfg):
+class GanClsEval(object):
+    def __init__(self, sess: tf.Session, model: GanCls, dataset: TextDataset, cfg):
         self.sess = sess
         self.model = model
         self.dataset = dataset
@@ -26,7 +26,6 @@ class WGanClsEval(object):
         pool3 = layers['PreLogits']
         act_op = tf.reshape(pool3, shape=[incep_batch_size, -1])
 
-
         if not os.path.exists(self.cfg.EVAL.ACT_STAT_PATH):
             print('Computing activation statistics for real x')
             fid.compute_and_save_activation_statistics(self.cfg.EVAL.R_IMG_PATH, self.sess, incep_batch_size, act_op,
@@ -39,7 +38,7 @@ class WGanClsEval(object):
 
         z = tf.placeholder(tf.float32, [self.bs, self.model.z_dim], name='real_images')
         cond = tf.placeholder(tf.float32, [self.bs] + [self.model.embed_dim], name='cond')
-        eval_gen, _, _ = self.model.generator(z, cond, reuse=False)
+        eval_gen = self.model.generator(z, cond, reuse=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
         could_load, _ = load(saver, self.sess, self.cfg.CHECKPOINT_DIR)
@@ -85,7 +84,7 @@ class WGanClsEval(object):
 
         z = tf.placeholder(tf.float32, [self.bs, self.model.z_dim], name='z')
         cond = tf.placeholder(tf.float32, [self.bs] + [self.model.embed_dim], name='cond')
-        eval_gen, _, _ = self.model.generator(z, cond, reuse=False, is_training=False)
+        eval_gen = self.model.generator(z, cond, reuse=False, is_training=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
         could_load, _ = load(saver, self.sess, self.cfg.CHECKPOINT_DIR)

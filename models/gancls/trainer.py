@@ -43,10 +43,12 @@ class GanClsTrainer(object):
 
         self.saver = tf.train.Saver(max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
-        self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
-            .minimize(self.D_loss, var_list=self.d_vars)
-        self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
-            .minimize(self.G_loss, var_list=self.g_vars)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
+                .minimize(self.D_loss, var_list=self.d_vars)
+            self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
+                .minimize(self.G_loss, var_list=self.g_vars)
 
     def define_summaries(self):
         self.D_synthetic_summ = tf.summary.histogram('d_synthetic_sum', self.model.D_synthetic)
@@ -104,7 +106,9 @@ class GanClsTrainer(object):
             updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
 
             for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
+                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
+                                                                                  embeddings=True,
+                                                                                  wrong_img=True)
                 batch_z = np.random.uniform(-1, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
 
                 # Update D network

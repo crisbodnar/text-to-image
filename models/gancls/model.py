@@ -3,7 +3,7 @@ from utils.utils import *
 
 
 class GanCls(object):
-    def __init__(self, cfg):
+    def __init__(self, cfg, build_model=True):
         """
         Args:
           cfg: Config specifying all the parameters of the model.
@@ -30,7 +30,8 @@ class GanCls(object):
             'gamma': tf.random_normal_initializer(1., 0.02),
         }
 
-        self.build_model()
+        if build_model:
+            self.build_model()
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
@@ -93,7 +94,8 @@ class GanCls(object):
                                         activation=lambda l: tf.nn.leaky_relu(l, 0.2))
 
             # Append embeddings in depth
-            net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
+            net_embed = tf.expand_dims(tf.expand_dims(net_embed, 1), 1)
+            net_embed = tf.tile(net_embed, [1, 4, 4, 1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
             net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
@@ -124,9 +126,9 @@ class GanCls(object):
 
             # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
             if sampler:
-                net_h0 = tf.reshape(net_h0, [self.sample_num, s16, s16, -1])
+                net_h0 = tf.reshape(net_h0, [self.sample_num, 4, 4, -1])
             else:
-                net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1])
+                net_h0 = tf.reshape(net_h0, [self.batch_size, 4, 4, -1])
 
             # Residual layer
             net = tf.layers.conv2d(inputs=net_h0, filters=self.gf_dim * 2, kernel_size=(1, 1), strides=(1, 1),
