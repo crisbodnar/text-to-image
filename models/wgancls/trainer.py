@@ -33,8 +33,6 @@ class WGanClsTrainer(object):
             tf.summary.scalar('D_loss_real', self.model.D_loss_real),
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
             tf.summary.scalar('real_gp', self.model.real_gp),
-            tf.summary.scalar('match_gp', self.model.match_gp),
-            tf.summary.scalar('neg_d_loss', -self.model.D_loss),
             tf.summary.scalar('D_loss', self.model.D_loss),
             tf.summary.scalar('Dm_loss', self.model.Dm_loss),
             tf.summary.scalar('wdist', self.model.wdist),
@@ -89,9 +87,10 @@ class WGanClsTrainer(object):
             _, err_d = self.sess.run([self.model.D_optim, self.model.D_loss],
                                      feed_dict=feed_dict)
 
-            # Use TTUR update rule (https://arxiv.org/abs/1706.08500)
-            _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
-                                     feed_dict=feed_dict)
+            err_g = None
+            if np.mod(idx, 2) == 0:
+                _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
+                                         feed_dict=feed_dict)
 
             summary_period = self.cfg.TRAIN.SUMMARY_PERIOD
             if np.mod(idx, summary_period) == 0:

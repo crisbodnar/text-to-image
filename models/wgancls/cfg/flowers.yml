@@ -12,7 +12,7 @@ MODEL:
   EMBED_DIM: 1024 # The dimension of the embedding before compression (as given by the cnn-rnn encoder)
   COMPRESSED_EMBED_DIM: 128 # The dimension of the embedding after compression
   GF_DIM: 128 # The number of filters in the first convolutional layer of the generator
-  DF_DIM: 64 # The number of filters in the first convolutional layer of the discriminator
+  DF_DIM: 128 # The number of filters in the first convolutional layer of the discriminator
   IMAGE_SHAPE:
     W: 64
     H: 64
@@ -36,7 +36,7 @@ TRAIN:
     LAMBDA: 10.0
 
 EVAL:
-  FLAG: False
+  FLAG: True
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64

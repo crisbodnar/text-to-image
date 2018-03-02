@@ -4,7 +4,7 @@ NHWC = 'NHWC'
 NCHW = 'NCHW'
 
 
-def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
+def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9, df=NHWC):
     """
     A batch normalization layer with input x
 
@@ -25,7 +25,8 @@ def batch_norm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9):
                                         is_training=train,
                                         scope=name,
                                         fused=True,
-                                        activation_fn=act)
+                                        activation_fn=act,
+                                        data_format=df)
 
 
 def batch_renorm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9, df=NHWC):
@@ -54,18 +55,18 @@ def batch_renorm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9, 
                                         data_format=df)
 
 
-def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
+def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None, df=NHWC):
     if init is None:
         init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.conv2d(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                            kernel_initializer=init, name=name)
+                            kernel_initializer=init, name=name, data_format=df_to_channel(df))
 
 
-def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None):
+def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None, df=NHWC):
     if init is None:
         init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                                      kernel_initializer=init, name=name)
+                                      kernel_initializer=init, name=name, data_format=df_to_channel(df))
 
 
 def kl_std_normal_loss(mean, log_sigma):
@@ -74,11 +75,17 @@ def kl_std_normal_loss(mean, log_sigma):
     return loss
 
 
-def layer_norm(x, act=None, scope=None):
-    return tf.contrib.layers.layer_norm(x, activation_fn=act, scope=scope)
+def layer_norm(x, act=None, scope=None, df=NHWC):
+    if df == NHWC:
+        begin_params_axis = -1
+    elif df == NCHW:
+        begin_params_axis = 1
+    else:
+        raise ValueError('Invalid data format %s' % df)
+    return tf.contrib.layers.layer_norm(x, activation_fn=act, begin_params_axis=begin_params_axis, scope=scope)
 
 
-def fc(x, units, act=None, init=None, bias=True, name=None, wdecay=4e-5):
+def fc(x, units, act=None, init=None, bias=True, name=None):
     if init is None:
         init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
     return tf.layers.dense(x, units=units, activation=act, kernel_initializer=init, use_bias=bias, name=name)
@@ -94,8 +101,8 @@ def pix_norm(x, eps=1e-8, act=None):
     return x / tf.sqrt(tf.reduce_mean(x**2, axis=3, keep_dims=True) + eps)
 
 
-def pool(x, s=2, p_type='AVG'):
-    return tf.nn.pool(x, window_shape=[s, s], pooling_type=p_type, strides=[s, s], padding='SAME')
+def pool(x, s=2, p_type='AVG', df=NHWC):
+    return tf.nn.pool(x, window_shape=[s, s], pooling_type=p_type, strides=[s, s], padding='SAME', data_format=df)
 
 
 def resize_nearest_neighbor(x, new_size):
@@ -132,5 +139,21 @@ def minibatch_state_concat(input, averaging='all'):
         print ("nothing")
     vals = tf.tile(vals, multiples=[tf.shape(input)[0], 4, 4, 1])
     return tf.concat([input, vals], axis=3)
+
+
+def to_nchw(x):
+    return tf.transpose(x, [0, 3, 1, 2])
+
+
+def to_nhwc(x):
+    return tf.transpose(x, [0, 2, 3, 1])
+
+
+def df_to_channel(df):
+    if df == NHWC:
+        return 'channels_last'
+    if df == NCHW:
+        return 'channels_first'
+    raise RuntimeError('Invalid data format %s' % df)
 
 
