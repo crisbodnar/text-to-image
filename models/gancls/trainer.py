@@ -125,7 +125,12 @@ class GanClsTrainer(object):
 
                 # Update G network
                 _, err_g, summary_str = self.sess.run([self.G_optim, self.G_loss, self.G_merged_summ],
-                                                      feed_dict={self.model.z: batch_z, self.model.phi_inputs: embed})
+                                                      feed_dict={
+                                                          self.model.inputs: images,
+                                                          self.model.wrong_inputs: wrong_images,
+                                                          self.model.phi_inputs: embed,
+                                                          self.model.z: batch_z
+                                                      })
                 self.writer.add_summary(summary_str, counter)
 
                 counter += 1

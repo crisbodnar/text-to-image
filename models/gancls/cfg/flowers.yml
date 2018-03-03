@@ -33,7 +33,7 @@ TRAIN:
     ALPHA_MISMATCH_LOSS: 0.5
 
 EVAL:
-  FLAG: TRUE
+  FLAG: True
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64

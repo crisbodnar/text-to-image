@@ -22,7 +22,7 @@ if __name__ == "__main__":
         cfg = config_from_yaml(FLAGS.cfg)
 
         batch_size = 16
-        max_iters = 37500
+        max_iters = 50000
         sample_size = 512
         GAN_learn_rate = 1e-4
 

@@ -64,16 +64,12 @@ class WGanCls(object):
     def realism_branch(self, x, f):
         net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
         net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
-        net_h4 = conv2d(net_h4, f, ks=(2, 2), s=(1, 1), df=NCHW)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
 
         out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=NCHW)
         return out
 
     def matching_branch(self, x, f):
         net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
-        net_h4 = conv2d(net_h4, f, ks=(2, 2), s=(1, 1), df=NCHW)
         net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
 
         out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=NCHW)
@@ -100,8 +96,8 @@ class WGanCls(object):
 
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist + lambda1 * self.real_gp + 5 * self.Dm_loss
-        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 5 * self.Gm_loss
+        self.D_loss = -self.wdist + lambda1 * self.real_gp + self.Dm_loss
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + self.Gm_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
         decay = 1

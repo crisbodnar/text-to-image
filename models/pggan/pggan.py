@@ -1,7 +1,7 @@
 import tensorflow as tf
 import time
 
-from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm, batch_norm, pix_norm
+from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm, batch_norm, layer_norm
 from utils.utils import save_images, image_manifold_size, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
@@ -96,11 +96,10 @@ class PGGAN(object):
         self.kl_coeff = 10
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00001, beta1=0.5, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops + [self.alpha_assign]):
+        with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
             self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
@@ -253,7 +252,6 @@ class PGGAN(object):
                 concat = self.concat_cond(conv, cond)
                 concat = tf.layers.dropout(concat, rate=0.1, training=is_train)
 
-
                 # Real/False branch
                 conv_b1 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
@@ -285,7 +283,7 @@ class PGGAN(object):
 
                 de = self.concat_cond(de, cond)
                 de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                de = pix_norm(de, act=lrelu_act())
+                de = layer_norm(de, act=lrelu_act())
 
             de_iden = None
             for i in range(1, stages):
@@ -298,9 +296,9 @@ class PGGAN(object):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     de = upscale(de, 2)
                     de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = pix_norm(de, act=lrelu_act())
+                    de = layer_norm(de, act=lrelu_act())
                     de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = pix_norm(de, act=lrelu_act())
+                    de = layer_norm(de, act=lrelu_act())
 
             de = self.to_rgb(de, stages - 1)
 
@@ -311,7 +309,8 @@ class PGGAN(object):
 
     def concat_cond(self, x, cond):
         cond_compress = fc(cond, units=128, act=lrelu_act())
-        cond_compress = tf.reshape(cond_compress, shape=[-1, 4, 4, 8])
+        cond_compress = tf.expand_dims(tf.expand_dims(cond_compress, 1), 1)
+        cond_compress = tf.tile(cond_compress, [1, 4, 4, 1])
         x = tf.concat([x, cond_compress], axis=3)
         return x
 
