@@ -93,7 +93,7 @@ class PGGAN(object):
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dgm_logit,
                                                     labels=tf.ones_like(self.Dgm_logit)))
 
-        self.kl_coeff = 10
+        self.kl_coeff = 2
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
         self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
@@ -249,24 +249,16 @@ class PGGAN(object):
                     conv = tf.multiply(alpha_trans, conv) + tf.multiply(tf.subtract(1., alpha_trans), conv_iden)
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
-                concat = self.concat_cond(conv, cond)
-                concat = tf.layers.dropout(concat, rate=0.1, training=is_train)
-
                 # Real/False branch
-                conv_b1 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                conv_b1 = conv2d(conv, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
-                conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
-                conv_b1 = layer_norm(conv_b1, act=lrelu_act())
-                conv_b1 = tf.reshape(conv_b1, [-1, self.get_nf(0)])
-                output_b1 = fc(conv_b1, units=1)
+                output_b1 = conv2d(conv_b1, f=1, ks=(4, 4), s=(1, 1), padding='VALID')
 
                 # Match/Mismatch branch
+                concat = self.concat_cond(conv, cond)
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b2 = layer_norm(conv_b2, act=lrelu_act())
-                conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
-                conv_b2 = layer_norm(conv_b2, act=lrelu_act())
-                conv_b2 = tf.reshape(conv_b2, [-1, self.get_nf(0)])
-                output_b2 = fc(conv_b2, units=1)
+                output_b2 = conv2d(conv_b2, f=1, ks=(4, 4), s=(1, 1), padding='VALID')
 
             return output_b1, output_b2
 
