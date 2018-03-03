@@ -199,6 +199,7 @@ def visualize(sess, dcgan, config, option):
 
 
 def image_manifold_size(num_images):
+    """Gets the square root of the number of images. Used for producing a grid of images"""
     if math.sqrt(num_images) * math.sqrt(num_images) != num_images:
         raise ValueError('num_images must be a perfect square')
 

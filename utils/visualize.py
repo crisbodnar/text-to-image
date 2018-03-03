@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 
 
 def slerp(a, b, miu):
@@ -22,10 +23,15 @@ def lerp(a, b, miu):
     return miu * a + (1. - miu) * b
 
 
-def get_interpolated_batch(a, b, batch_size=64):
+def get_interpolated_batch(a, b, batch_size=64, method='slerp'):
+    """Generates a batch of given size of interpolations between a, b"""
 
     step_size = 1 / batch_size
     interp = []
     for val in np.arange(0.0, 1.0, step_size):
-        interp.append(slerp(val, a, b))
+        if method == 'slerp':
+            interp.append(slerp(a, b, val))
+        elif method == 'lerp':
+            interp.append(lerp(a, b, val))
     return interp
+
