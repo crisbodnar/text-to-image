@@ -1,7 +1,6 @@
 """
 Some codes from https://github.com/Newmu/dcgan_code
 """
-from __future__ import division
 import math
 import random
 import pprint
@@ -198,15 +197,18 @@ def visualize(sess, dcgan, config, option):
         make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
 
 
-def image_manifold_size(num_images):
-    """Gets the square root of the number of images. Used for producing a grid of images"""
-    if math.sqrt(num_images) * math.sqrt(num_images) != num_images:
-        raise ValueError('num_images must be a perfect square')
-
-    manifold_h = int(np.floor(np.sqrt(num_images)))
-    manifold_w = int(np.ceil(np.sqrt(num_images)))
-    assert manifold_h * manifold_w == num_images
-    return manifold_h, manifold_w
+def get_balanced_factorization(x):
+    """Gets the factorization x=a*b with a,b being numbers as close as possible to each other"""
+    if x <= 0:
+        raise ValueError('Argument must be a strictly positive number but it is %d', x)
+    a = int(np.sqrt(x))
+    if a**2 == x:
+        return a, a
+    start = a
+    for a in range(start, 0, -1):
+        if np.mod(x, a) == 0:
+            return a, x // a
+    raise ValueError('Error finding the balanced factorization of %d' % x)
 
 
 def save_captions(directory: str, captions):

@@ -35,3 +35,10 @@ def get_interpolated_batch(a, b, batch_size=64, method='slerp'):
             interp.append(lerp(a, b, val))
     return interp
 
+
+def interp_z(sess, gen_op, cond_sample, z1, z2, z='z:0', cond='cond:0', method='slerp', bs=64):
+    """Generates a set of interpolated images in the space of the noise vector z"""
+
+    z_batch = get_interpolated_batch(z1, z2, bs, method=method)
+    return sess.run(gen_op, feed_dict={z: z_batch, cond: cond_sample})
+

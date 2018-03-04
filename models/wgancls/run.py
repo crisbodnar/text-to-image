@@ -3,6 +3,7 @@ import os
 from models.wgancls.model import WGanCls
 from models.wgancls.trainer import WGanClsTrainer
 from models.wgancls.eval_wgan import WGanClsEval
+from models.wgancls.visualize_wgan import WGanClsVisualizer
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -16,8 +17,7 @@ FLAGS = flags.FLAGS
 
 
 def main(_):
-    pp.pprint(flags.FLAGS.__flags)
-
+    print(FLAGS.cfg)
     cfg = config_from_yaml(FLAGS.cfg)
 
     if not os.path.exists(cfg.CHECKPOINT_DIR):
@@ -41,28 +41,33 @@ def main(_):
 
     with tf.Session(config=run_config) as sess:
         if cfg.EVAL.FLAG:
-            stage_i = WGanCls(cfg, build_model=False)
+            wgan = WGanCls(cfg, build_model=False)
             wgan_eval = WGanClsEval(
                 sess=sess,
-                model=stage_i,
+                model=wgan,
                 dataset=dataset,
                 cfg=cfg,
             )
             wgan_eval.evaluate_inception()
-            return
-
-        if cfg.TRAIN.FLAG:
-            stage_i = WGanCls(cfg)
+        elif cfg.TRAIN.FLAG:
+            wgan = WGanCls(cfg)
             show_all_variables()
             trainer = WGanClsTrainer(
                 sess=sess,
-                model=stage_i,
+                model=wgan,
                 dataset=dataset,
                 cfg=cfg,
             )
             trainer.train()
         else:
-            pass
+            wgan = WGanCls(cfg, build_model=False)
+            wgan_vis = WGanClsVisualizer(
+                sess=sess,
+                model=wgan,
+                dataset=dataset,
+                config=cfg,
+            )
+            wgan_vis.visualize()
 
 
 if __name__ == '__main__':

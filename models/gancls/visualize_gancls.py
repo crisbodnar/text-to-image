@@ -1,7 +1,5 @@
-from random import randint
-
 from models.gancls.model import GanCls
-from utils.utils import save_images, image_manifold_size
+from utils.utils import save_images, get_balanced_factorization, make_gif
 from utils.saver import load
 from utils.visualize import *
 from preprocess.dataset import TextDataset
@@ -32,7 +30,7 @@ class GanClsVisualizer(object):
         _, _, cond, _, _ = self.dataset.test.next_batch(1, window=4, embeddings=True)
         cond = np.tile(cond, reps=[64, 1])
 
-        sample_z = get_interpolated_batch(z1, z2, method='slerp')
+        sample_z = get_interpolated_batch(z1, z2, method='lerp')
 
         samples = self.sess.run(self.model.sampler,
                                 feed_dict={
@@ -40,17 +38,17 @@ class GanClsVisualizer(object):
                                     self.model.phi_sample: cond,
                                 })
 
-        save_images(samples, image_manifold_size(samples.shape[0]),
-                    '{}/{}_visual/test.png'.format(self.samples_dir, self.dataset.name))
+        save_images(samples, get_balanced_factorization(samples.shape[0]),
+                    '{}/{}_visual/test1.png'.format(self.samples_dir, self.dataset.name))
         # ---------------------------------------------
 
-        z = np.random.uniform(-1, 1, size=(1, self.model.z_dim))
-        sample_z = np.tile(z, reps=[64, 1])
+        sample_z = np.random.uniform(-1, 1, size=(64, self.model.z_dim))
 
-        _, _, cond, _, _ = self.dataset.test.next_batch(2, window=4, embeddings=True)
+        _, cond, _, _ = self.dataset.test.next_batch_test(2, 0, 1)
+        cond = np.squeeze(cond, axis=0)
         cond1, cond2 = cond[0], cond[1]
 
-        cond = get_interpolated_batch(cond1, cond2, method='lerp')
+        cond = get_interpolated_batch(cond1, cond2, method='slerp')
 
         samples = self.sess.run(self.model.sampler,
                                 feed_dict={
@@ -58,7 +56,8 @@ class GanClsVisualizer(object):
                                     self.model.phi_sample: cond,
                                 })
 
-        save_images(samples, image_manifold_size(samples.shape[0]),
+        save_images(samples, get_balanced_factorization(samples.shape[0]),
                     '{}/{}_visual/test2.png'.format(self.samples_dir, self.dataset.name))
+        make_gif(samples, '{}/{}_visual/test2.gif'.format(self.samples_dir, self.dataset.name))
 
 

@@ -61,18 +61,18 @@ class WGanCls(object):
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
         return tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
 
-    def realism_branch(self, x, f):
-        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
+    def realism_branch(self, x, f, df=NCHW):
+        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df)
+        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=df)
 
-        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=NCHW)
+        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=df)
         return out
 
-    def matching_branch(self, x, f):
-        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=NCHW)
+    def matching_branch(self, x, f, df=NCHW):
+        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df)
+        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=df)
 
-        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=NCHW)
+        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=df)
         return out
 
     def define_losses(self):
@@ -104,12 +104,13 @@ class WGanCls(object):
         self.d_lr = self.cfg.TRAIN.D_LR * decay
         self.g_lr = self.cfg.TRAIN.G_LR * decay
 
+        self.D_optim = tf.train.AdamOptimizer(self.d_lr,
+                                              beta1=self.cfg.TRAIN.BETA1,
+                                              beta2=self.cfg.TRAIN.BETA2) \
+            .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
+
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.D_optim = tf.train.AdamOptimizer(self.d_lr,
-                                                  beta1=self.cfg.TRAIN.BETA1,
-                                                  beta2=self.cfg.TRAIN.BETA2)\
-                .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
             self.G_optim = tf.train.AdamOptimizer(self.g_lr,
                                                   beta1=self.cfg.TRAIN.BETA1,
                                                   beta2=self.cfg.TRAIN.BETA2)\
@@ -173,7 +174,7 @@ class WGanCls(object):
 
             return net_logits, mnet_logits
 
-    def generator(self, z, embed, reuse=False, is_training=True):
+    def generator(self, z, embed, reuse=False, is_training=True, df=NCHW):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -186,48 +187,53 @@ class WGanCls(object):
             # Concatenate the sampled embedding with the z vector
             net_input = tf.concat([z, net_embed], 1)
             net_h0 = fc(net_input, self.gf_dim * 8 * s16 * s16, act=None)
-            net_h0 = batch_norm(net_h0, train=is_training, act=None, df=NCHW)
+            net_h0 = batch_norm(net_h0, train=is_training, act=None, df=df)
             # --------------------------------------------------------
-            net_h0 = tf.reshape(net_h0, [-1, self.gf_dim * 8, s16, s16])
+            if df == NCHW:
+                net_h0 = tf.reshape(net_h0, [-1, self.gf_dim * 8, s16, s16])
+            else:
+                net_h0 = tf.reshape(net_h0, [-1, s16, s16, self.gf_dim * 8])
 
             # Residual layer
-            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=NCHW)
-            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1), df=NCHW)
-            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=NCHW)
-            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), padding='same', df=NCHW)
-            net = batch_norm(net, train=is_training, act=None, df=NCHW)
+            net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', df=df)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=df)
+            net = conv2d(net, self.gf_dim * 2, ks=(3, 3), s=(1, 1), df=df)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=df)
+            net = conv2d(net, self.gf_dim * 8, ks=(3, 3), s=(1, 1), df=df)
+            net = batch_norm(net, train=is_training, act=None, df=df)
             net_h1 = tf.add(net_h0, net)
             net_h1 = tf.nn.relu(net_h1)
             # --------------------------------------------------------
 
-            net_h2 = conv2d_transpose(net_h1, self.gf_dim * 4, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h2 = conv2d(net_h2, self.gf_dim * 4, ks=(3, 3), s=(1, 1), df=NCHW)
-            net_h2 = batch_norm(net_h2, train=is_training, act=None, df=NCHW)
+            net_h2 = conv2d_transpose(net_h1, self.gf_dim * 4, ks=(4, 4), s=(2, 2), df=df)
+            net_h2 = conv2d(net_h2, self.gf_dim * 4, ks=(3, 3), s=(1, 1), df=df)
+            net_h2 = batch_norm(net_h2, train=is_training, act=None, df=df)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=NCHW)
-            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1), df=NCHW)
-            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=NCHW)
-            net = conv2d(net, self.gf_dim * 4, ks=(3, 3), s=(1, 1), df=NCHW)
-            net = batch_norm(net, train=is_training, act=None, df=NCHW)
+            net = conv2d(net_h2, self.gf_dim, ks=(1, 1), s=(1, 1), padding='valid', df=df)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=df)
+            net = conv2d(net, self.gf_dim, ks=(3, 3), s=(1, 1), df=df)
+            net = batch_norm(net, train=is_training, act=tf.nn.relu, df=df)
+            net = conv2d(net, self.gf_dim * 4, ks=(3, 3), s=(1, 1), df=df)
+            net = batch_norm(net, train=is_training, act=None, df=df)
             net_h3 = tf.add(net_h2, net)
             net_h3 = tf.nn.relu(net_h3)
             # --------------------------------------------------------
 
-            net_h4 = conv2d_transpose(net_h3, self.gf_dim * 2, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h4 = conv2d(net_h4, self.gf_dim * 2, ks=(3, 3), s=(1, 1), df=NCHW)
-            net_h4 = batch_norm(net_h4, train=is_training, act=tf.nn.relu, df=NCHW)
+            net_h4 = conv2d_transpose(net_h3, self.gf_dim * 2, ks=(4, 4), s=(2, 2), df=df)
+            net_h4 = conv2d(net_h4, self.gf_dim * 2, ks=(3, 3), s=(1, 1), df=df)
+            net_h4 = batch_norm(net_h4, train=is_training, act=tf.nn.relu, df=df)
 
-            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1), df=NCHW)
-            net_h5 = batch_norm(net_h5, train=is_training, act=tf.nn.relu, df=NCHW)
+            net_h5 = conv2d_transpose(net_h4, self.gf_dim, ks=(4, 4), s=(2, 2), df=df)
+            net_h5 = conv2d(net_h5, self.gf_dim, ks=(3, 3), s=(1, 1), df=df)
+            net_h5 = batch_norm(net_h5, train=is_training, act=tf.nn.relu, df=df)
 
-            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2), df=NCHW)
-            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1), df=NCHW)
+            net_logits = conv2d_transpose(net_h5, self.image_dims[-1], ks=(4, 4), s=(2, 2), df=df)
+            net_logits = conv2d(net_logits, self.image_dims[-1], ks=(3, 3), s=(1, 1), df=df)
 
             net_output = tf.nn.tanh(net_logits)
-            net_output = to_nhwc(net_output)
+
+            if df == NCHW:
+                net_output = to_nhwc(net_output)
             return net_output, mean, log_sigma

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from models.wgancls.model import WGanCls
-from utils.utils import save_images, image_manifold_size, save_captions
+from utils.utils import save_images, get_balanced_factorization, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
@@ -107,7 +107,7 @@ class WGanClsTrainer(object):
                                                 self.model.z_sample: sample_z,
                                                 self.model.cond_sample: sample_cond,
                                             })
-                    save_images(samples, image_manifold_size(samples.shape[0]),
+                    save_images(samples, get_balanced_factorization(samples.shape[0]),
                                 '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
 
                 except Exception as e:
