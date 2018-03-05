@@ -6,19 +6,20 @@ import pickle
 from preprocess.utils import get_image
 import scipy.misc
 import numpy as np
+from sklearn.externals import joblib
+
 
 # Edit this list to specify which files to be created
-IMG_SIZES = [42]
-LOAD_SIZE = 100
+IMG_SIZES = [600]
+LOAD_SIZE = 600
 FLOWER_DIR = './data/flowers'
 
 
 def load_filenames(data_dir):
     filepath = data_dir + 'filenames.pickle'
     filenames = []
-    with open(filepath, 'rb') as f:
-        for filename in pickle.load(f):
-            filenames.append(filename)
+    for filename in joblib.load(filepath):
+        filenames.append(filename)
     print('Load filenames from: %s (%d)' % (filepath, len(filenames)))
     return filenames
 
@@ -41,14 +42,13 @@ def save_data_list(inpath, outpath, filenames):
 
             cnt += 1
             if cnt % 100 == 0:
-                print('\rLoad %d......' % cnt, flush=True)
+                print('\rLoad %d......' % cnt, end="", flush=True)
 
         print('Images processed: %d', len(filenames))
 
         outfile = outpath + str(size) + 'images.pickle'
-        with open(outfile, 'wb') as f_out:
-            pickle.dump(images, f_out)
-            print('save to: ', outfile)
+        joblib.dump(images, outfile)
+        print('save to: ', outfile)
 
 
 def convert_flowers_dataset_pickle(inpath):
