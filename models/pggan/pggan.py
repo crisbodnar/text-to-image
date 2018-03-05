@@ -151,7 +151,7 @@ class PGGAN(object):
 
             summary_writer = tf.summary.FileWriter(self.log_dir, sess.graph)
 
-            if self.stage != 1 and self.stage != 7:
+            if self.stage != 1:
                 if self.trans:
                     could_load = load(self.restore, sess, self.read_model_path)
                     if not could_load:
@@ -314,6 +314,9 @@ class PGGAN(object):
 
     def get_nf(self, stage):
         return min(1024 // (2 ** (stage * 1)), 512)
+
+    def get_dnf(self, stage):
+        return min(1024 // (2 ** (stage + 1)), 256)
 
     def from_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
