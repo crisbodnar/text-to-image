@@ -18,6 +18,7 @@ MODEL:
     - 64
     - 128
     - 256
+    - 512
 
 TRAIN:
   FLAG: True

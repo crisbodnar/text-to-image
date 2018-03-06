@@ -2,7 +2,6 @@
 Parts of this code are taken from: https://github.com/hanzhanggit/StackGAN/blob/master/misc/preprocess_flowers.py
 """
 import os
-import pickle
 from preprocess.utils import get_image
 import scipy.misc
 import numpy as np
