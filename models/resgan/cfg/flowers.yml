@@ -1,9 +1,9 @@
-CONFIG_NAME: 'PGGAN_decent'
+CONFIG_NAME: 'ResGAN_decent'
 DATASET_NAME: 'flowers'
 
 DATASET_DIR: './data/flowers/'
 CHECKPOINT_DIR: './checkpoints/ResGAN/flowers'
-LOGS_DIR: './logs/PGGAN_logs'
+LOGS_DIR: './logs/ResGAN_logs'
 SAMPLE_DIR: './samples/ResGAN/flowers'
 
 MODEL:
@@ -19,6 +19,24 @@ MODEL:
     - 128
     - 256
     - 512
+  BS:
+    - 16
+    - 16
+    - 16
+    - 16
+    - 16
+    - 16
+    - 8
+    - 4
+  KITERS:
+    - 25
+    - 40
+    - 40
+    - 100
+    - 100
+    - 120
+    - 150
+    - 180
 
 TRAIN:
   FLAG: True
