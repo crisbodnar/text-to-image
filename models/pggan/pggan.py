@@ -96,7 +96,7 @@ class PGGAN(object):
         self.kl_coeff = 2
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.5, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
         self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
 
         with tf.control_dependencies([self.alpha_assign]):

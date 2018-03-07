@@ -12,20 +12,39 @@ FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
 
-    for stage in range(4, 9):
+    stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
+    prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
+
+    for i in range(9, len(stage)):
+
+        t = False if (i % 2 == 0) else True
 
         cfg = config_from_yaml(FLAGS.cfg)
 
-        batch_size = cfg.MODEL.BS[stage - 1]
-        max_iters = cfg.MODEL.KITERS[stage - 1] * 1000
+        batch_size = 32
+        scale_factor = 1
+        if stage[i] == 7:
+            batch_size = 8
+            scale_factor = 2
+        print(batch_size)
+
+        if stage[i] <= 4 or t:
+            max_iters = 20000 * scale_factor
+        else:
+            max_iters = 50000 * scale_factor
 
         sample_size = 512
         GAN_learn_rate = 1e-4
 
-        pggan_checkpoint_dir_write = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
-        pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % (stage - 1))
-        sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage%d/' % stage)
-        logs_dir = os.path.join(cfg.LOGS_DIR, 'stage%d/' % stage)
+        pggan_checkpoint_dir_write = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage[i])
+        pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % prev_stage[i])
+
+        if t:
+            sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage_t%d/' % stage[i])
+            logs_dir = os.path.join(cfg.LOGS_DIR, 'stage_t%d/' % stage[i])
+        else:
+            sample_path = os.path.join(cfg.SAMPLE_DIR, 'stage%d/' % stage[i])
+            logs_dir = os.path.join(cfg.LOGS_DIR, 'stage%d/' % stage[i])
 
         if not os.path.exists(pggan_checkpoint_dir_write):
             os.makedirs(pggan_checkpoint_dir_write)
@@ -33,15 +52,11 @@ if __name__ == "__main__":
             os.makedirs(sample_path)
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
-        if not os.path.exists(pggan_checkpoint_dir_read):
+        if not os.path.exists(pggan_checkpoint_dir_read) and stage > 1:
             os.makedirs(pggan_checkpoint_dir_read)
 
-        run_config = tf.ConfigProto()
-        run_config.gpu_options.allow_growth = True
-
         datadir = cfg.DATASET_DIR
-        os = cfg.MODEL.SIZES[stage - 1]
-        dataset = TextDataset(datadir, os)
+        dataset = TextDataset(datadir, cfg.MODEL.SIZES[stage[i] - 1])
 
         filename_test = '%s/test' % datadir
         dataset.test = dataset.get_data(filename_test)
@@ -52,7 +67,8 @@ if __name__ == "__main__":
         pggan = ResGAN(batch_size=batch_size, max_iters=max_iters,
                        model_path=pggan_checkpoint_dir_write, read_model_path=pggan_checkpoint_dir_read,
                        data=dataset, sample_size=sample_size,
-                       sample_path=sample_path, log_dir=logs_dir, learn_rate=GAN_learn_rate, stage=stage, os=os)
+                       sample_path=sample_path, log_dir=logs_dir, learn_rate=GAN_learn_rate, stage=stage[i],
+                       t=t)
 
         pggan.train()
 
