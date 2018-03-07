@@ -15,7 +15,7 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(11, len(stage)):
+    for i in range(12, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
@@ -23,9 +23,6 @@ if __name__ == "__main__":
 
         batch_size = 16
         scale_factor = 1
-        if stage[i] == 8:
-            batch_size = 8
-            scale_factor = 2
 
         if stage[i] <= 4 or t:
             max_iters = 37500 * scale_factor

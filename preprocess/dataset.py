@@ -3,6 +3,7 @@ Parts of this code are taken from: https://github.com/hanzhanggit/StackGAN/blob/
 """
 
 import numpy as np
+from sklearn.externals import joblib
 import pickle
 import random
 import os
@@ -252,10 +253,13 @@ class TextDataset(object):
         self._test = test
 
     def get_data(self, pickle_path, aug_flag=True) -> Dataset:
-        with open(pickle_path + self.image_filename, 'rb') as f:
-            images = pickle.load(f)
-            images = np.array(images)
-            print('Image shape: ', images.shape)
+        if self.size > 400:
+            images = joblib.load(pickle_path + self.image_filename)
+        else:
+            with open(pickle_path + self.image_filename, 'rb') as f:
+                images = pickle.load(f)
+        images = np.array(images)
+        print('Image shape: ', images.shape)
 
         with open(pickle_path + self.embedding_filename, 'rb') as f:
             embeddings = pickle.load(f, encoding='bytes')

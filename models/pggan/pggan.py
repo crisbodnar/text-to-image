@@ -213,6 +213,8 @@ class PGGAN(object):
                                                     self.z_sample: sample_z,
                                                     self.cond_sample: sample_cond})
                         samples = np.clip(samples, -1., 1.)
+                        if self.output_size > 256:
+                            samples = samples[:4]
                         save_images(samples, image_manifold_size(samples.shape[0]),
                                     '{}train_{:02d}_{:04d}.png'.format(self.sample_path, epoch, idx))
 
