@@ -15,7 +15,7 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(9, len(stage)):
+    for i in range(0, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
@@ -24,14 +24,14 @@ if __name__ == "__main__":
         batch_size = 32
         scale_factor = 1
         if stage[i] == 7:
-            batch_size = 8
+            batch_size = 16
             scale_factor = 2
         print(batch_size)
 
         if stage[i] <= 4 or t:
-            max_iters = 20000 * scale_factor
+            max_iters = 30000 * scale_factor
         else:
-            max_iters = 50000 * scale_factor
+            max_iters = 40000 * scale_factor
 
         sample_size = 512
         GAN_learn_rate = 1e-4
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             os.makedirs(sample_path)
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
-        if not os.path.exists(pggan_checkpoint_dir_read) and stage > 1:
+        if not os.path.exists(pggan_checkpoint_dir_read) and stage[i] > 1:
             os.makedirs(pggan_checkpoint_dir_read)
 
         datadir = cfg.DATASET_DIR

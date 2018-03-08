@@ -1,7 +1,7 @@
 import tensorflow as tf
 import time
 
-from utils.ops import conv2d, fc, conv2d_transpose, layer_norm, upscale, pool
+from utils.ops import conv2d, fc, conv2d_transpose, layer_norm, upscale, pool, lrelu_act, batch_norm
 from utils.utils import save_images, image_manifold_size, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
@@ -40,72 +40,81 @@ class ResGAN(object):
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
-        self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel],
-                                name='x')
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
         self.x_mismatch = tf.placeholder(tf.float32,
                                          [self.batch_size, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
-        self.cond = tf.placeholder(tf.float32, [self.batch_size, self.embed_dim], name='cond')
+        self.cond = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='cond')
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.sample_size], name='z')
         self.epsilon = tf.placeholder(tf.float32, [self.batch_size, 1, 1, 1], name='eps')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.sample_size], name='z_sample')
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
-        self.G, self.embed_mean, self.embed_log_sigma \
-            = self.generator(self.z, self.cond, stages=self.stage, t=self.trans)
-        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False, stages=self.stage,
-                                                           t=self.trans)
-        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage,
-                                                            t=self.trans)
-        _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True, stages=self.stage,
-                                                t=self.trans)
+        self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False, t=self.trans, 
+                                                           stages=self.stage)
+        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False, t=self.trans, 
+                                                           stages=self.stage)
+        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, t=self.trans, 
+                                                           stages=self.stage)
+        _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True, t=self.trans, 
+                                                           stages=self.stage)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
-                                            t=self.trans,
-                                            is_train=False)
-        self.alpha_assign = tf.assign(self.alpha_tra,
-                                      (tf.cast(tf.cast(self.iter, tf.float32) / self.max_iters, tf.float32)))
+        self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
+        self.Dx_hat_logit, self.Dxma_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True, t=self.trans, 
+                                                           stages=self.stage)
+
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True,
+                                            t=self.trans, stages=self.stage, is_training=False)
 
         self.d_vars = tf.trainable_variables('d_net')
         self.g_vars = tf.trainable_variables('g_net')
 
         show_all_variables()
+        
+    def get_gradient_penalty(self, x, y):
+        grad_y = tf.gradients(y, [x])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
+        return tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
 
     def define_losses(self):
-        self.D_synthetic_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dg_logit,
-                                                    labels=tf.zeros_like(self.Dg_logit)))
-        self.D_real_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dx_logit,
-                                                    labels=tf.ones_like(self.Dx_logit)))
-        self.D_real_match_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
-                                                    labels=tf.ones_like(self.Dxma_logit)))
-        self.D_real_mismatch_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxmi_logit,
-                                                    labels=tf.zeros_like(self.Dxmi_logit)))
+        # Define the final losses
+        kl_coeff = 2
+        lambda1 = 100
 
-        self.D_realism_loss = self.D_synthetic_loss + self.D_real_loss
-        self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss
-        self.D_loss = self.D_realism_loss + self.D_matching_loss
-
+        self.D_loss_real = tf.reduce_mean(self.Dx_logit)
+        self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
+        self.wdist = self.D_loss_real - self.D_loss_fake
+        self.Dm_loss = \
+            tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxmi_logit,
+                                                                   labels=tf.zeros_like(self.Dxmi_logit))) \
+            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
+                                                                     labels=tf.ones_like(self.Dxma_logit)))
+        self.Gm_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+            logits=self.Dgm_logit,
+            labels=tf.ones_like(self.Dgm_logit)
+        ))
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
-        self.G_gan_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dg_logit,
-                                                    labels=tf.ones_like(self.Dg_logit)))
-        self.G_match_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dgm_logit,
-                                                    labels=tf.ones_like(self.Dgm_logit)))
+        self.Dx_reg = tf.reduce_mean(tf.square(self.Dx_logit))
 
-        self.kl_coeff = 2
-        self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
+        self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.5, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
+        self.D_loss = -self.wdist + lambda1 * self.real_gp + 2.0 * self.Dm_loss
+        self.D_loss += 0.001 * self.Dx_reg
+
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + 2.0 * self.Gm_loss
+
+        self.D_optimizer = tf.train.AdamOptimizer(0.0003, beta1=0.5, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
+
+        self.alpha_assign = tf.assign(self.alpha_tra,
+                                      (tf.cast(tf.cast(self.iter, tf.float32) / self.max_iters, tf.float32)))
 
         with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
+
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
             self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
         # variables to save
@@ -132,19 +141,20 @@ class ResGAN(object):
             tf.summary.histogram('z', self.z),
             tf.summary.histogram('z_sample', self.z_sample),
 
-            tf.summary.scalar('Gm_loss', self.G_match_loss),
-            tf.summary.scalar('G_gan_loss', self.G_gan_loss),
-            tf.summary.scalar('G_loss', self.G_loss),
-            tf.summary.scalar('alpha', self.alpha_tra),
+            tf.summary.scalar('G_loss_wass', -self.D_loss_fake),
+            tf.summary.scalar('Gm_loss', self.Gm_loss),
             tf.summary.scalar('kl_loss', self.G_kl_loss),
+            tf.summary.scalar('G_loss', self.G_loss),
+            # tf.summary.scalar('d_lr', self.d_lr),
+            # tf.summary.scalar('g_lr', self.g_lr),
 
-            tf.summary.scalar('D_syntehtic_loss', self.D_synthetic_loss),
-            tf.summary.scalar('D_loss_real', self.D_real_loss),
-            tf.summary.scalar('D_real_match_loss', self.D_real_match_loss),
-            tf.summary.scalar('D_real_mismatch_loss', self.D_real_mismatch_loss),
-            tf.summary.scalar('D_realism_loss', self.D_realism_loss),
-            tf.summary.scalar('D_matching_loss', self.D_matching_loss),
+            tf.summary.scalar('D_loss_real', self.D_loss_real),
+            tf.summary.scalar('D_loss_fake', self.D_loss_fake),
+            tf.summary.scalar('Dx_reg', self.Dx_reg),
+            tf.summary.scalar('real_gp', self.real_gp),
             tf.summary.scalar('D_loss', self.D_loss),
+            tf.summary.scalar('Dm_loss', self.Dm_loss),
+            tf.summary.scalar('wdist', self.wdist),
         ])
 
     # do train
@@ -233,7 +243,7 @@ class ResGAN(object):
 
         tf.reset_default_graph()
 
-    def discriminator(self, inp, cond, stages, t, reuse=False, is_train=True):
+    def discriminator(self, inp, cond, stages, t, reuse=False):
         alpha_trans = self.alpha_tra
         with tf.variable_scope("d_net", reuse=reuse):
             conv = self.from_rgb(inp, stages - 1)
@@ -249,11 +259,11 @@ class ResGAN(object):
                     conv_iden = layer_norm(conv_iden)
 
                     conv = conv2d(conv_iden, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    conv = layer_norm(conv, act=tf.nn.relu)
+                    conv = layer_norm(conv, act=lrelu_act())
                     conv = conv2d(conv, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     conv = layer_norm(conv)
 
-                    conv = tf.nn.relu(tf.add(conv_iden, conv))
+                    conv = lrelu_act()(tf.add(conv_iden, conv))
 
                 if i == stages - 1 and t:
                     conv = tf.multiply(alpha_trans, conv) + tf.multiply(tf.subtract(1., alpha_trans), conv_interp)
@@ -261,31 +271,31 @@ class ResGAN(object):
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
                 # Real/False branch
                 conv_b1 = conv2d(conv, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                conv_b1 = layer_norm(conv_b1, act=tf.nn.relu)
+                conv_b1 = layer_norm(conv_b1, act=lrelu_act())
                 output_b1 = conv2d(conv_b1, f=1, ks=(4, 4), s=(1, 1), padding='VALID')
 
                 # Match/Mismatch branch
                 concat = self.concat_cond(conv, cond)
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                conv_b2 = layer_norm(conv_b2, act=tf.nn.relu)
+                conv_b2 = layer_norm(conv_b2, act=lrelu_act())
                 output_b2 = conv2d(conv_b2, f=1, ks=(4, 4), s=(1, 1), padding='VALID')
 
             return output_b1, output_b2
 
-    def generator(self, z_var, cond, stages, t, reuse=False, is_train=True):
+    def generator(self, z_var, cond, stages, t, reuse=False, is_training=True):
         alpha_trans = self.alpha_tra
         with tf.variable_scope('g_net', reuse=reuse):
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
                 de = tf.reshape(z_var, [-1, 1, 1, self.sample_size])
-                de = conv2d_transpose(de, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=tf.nn.relu, padding='VALID')
+                de = conv2d_transpose(de, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=lrelu_act(), padding='VALID')
 
                 mean, log_sigma = self.generate_conditionals(cond)
                 cond = self.sample_normal_conditional(mean, log_sigma)
 
                 de = self.concat_cond(de, cond)
                 de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                de = layer_norm(de, act=tf.nn.relu)
+                de = layer_norm(de, act=lrelu_act())
 
             de_interp = None
             for i in range(1, stages):
@@ -296,15 +306,15 @@ class ResGAN(object):
 
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     de_iden = upscale(de, 2)
-                    de_iden = conv2d_transpose(de_iden, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
+                    de_iden = conv2d(de_iden, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     de_iden = layer_norm(de_iden)
                    
                     de = conv2d(de_iden, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = layer_norm(de, act=tf.nn.relu)
+                    de = layer_norm(de, act=lrelu_act())
                     de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     de = layer_norm(de)
                     
-                    de = tf.nn.relu(tf.add(de_iden, de))
+                    de = lrelu_act()(tf.add(de_iden, de))
 
             de = self.to_rgb(de, stages - 1)
 
@@ -314,7 +324,7 @@ class ResGAN(object):
             return de, mean, log_sigma
 
     def concat_cond(self, x, cond):
-        cond_compress = fc(cond, units=128, act=tf.nn.relu)
+        cond_compress = fc(cond, units=128, act=lrelu_act())
         cond_compress = tf.expand_dims(tf.expand_dims(cond_compress, 1), 1)
         cond_compress = tf.tile(cond_compress, [1, 4, 4, 1])
         x = tf.concat([x, cond_compress], axis=3)
@@ -331,12 +341,12 @@ class ResGAN(object):
 
     def from_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
-            return conv2d(x, f=self.get_nf(stage + 1), ks=(1, 1), s=(1, 1), act=tf.nn.relu)
+            return conv2d(x, f=self.get_nf(stage + 1), ks=(1, 1), s=(1, 1), act=lrelu_act())
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
-        mean = fc(embeddings, 128, act=tf.nn.relu)
-        log_sigma = fc(embeddings, 128, act=tf.nn.relu)
+        mean = fc(embeddings, 128, act=lrelu_act())
+        log_sigma = fc(embeddings, 128, act=lrelu_act())
         return mean, log_sigma
 
     def sample_normal_conditional(self, mean, log_sigma):
