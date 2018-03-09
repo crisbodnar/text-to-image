@@ -253,11 +253,7 @@ class TextDataset(object):
         self._test = test
 
     def get_data(self, pickle_path, aug_flag=True) -> Dataset:
-        if self.size > 400:
-            images = joblib.load(pickle_path + self.image_filename)
-        else:
-            with open(pickle_path + self.image_filename, 'rb') as f:
-                images = pickle.load(f)
+        images = joblib.load(pickle_path + self.image_filename)
         images = np.array(images)
         print('Image shape: ', images.shape)
 

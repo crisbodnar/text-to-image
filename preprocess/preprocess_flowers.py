@@ -34,6 +34,7 @@ def save_data_list(inpath, outpath, filenames):
             f_name = '%s/%s.jpg' % (inpath, key)
             img = get_image(f_name, LOAD_SIZE, is_crop=False)
             img = img.astype('uint8')
+            img = img.astype('uint8')
 
             if size != LOAD_SIZE:
                 img = scipy.misc.imresize(img, [size, size], 'bicubic')
