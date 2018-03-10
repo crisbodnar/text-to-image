@@ -16,9 +16,23 @@
 """
 
 import numpy as np
-import tensorflow as tf
 import math
 from utils.utils import preprocess_inception_images
+
+
+def get_inception_from_predictions(preds, splits, verbose=True):
+    scores = []
+    for i in range(splits):
+        if verbose:
+            print("\rComputing score for slice %d/%d" % (i + 1, splits), end="", flush=True)
+
+        istart = i * preds.shape[0] // splits
+        iend = (i + 1) * preds.shape[0] // splits
+        part = preds[istart:iend, :]
+        kl = (part * (np.log(part) - np.log(np.expand_dims(np.mean(part, 0), 0))))
+        kl = np.mean(np.sum(kl, 1))
+        scores.append(np.exp(kl))
+    return np.mean(scores), np.std(scores)
 
 
 def get_inception_score(images, sess, batch_size, splits, pred_op, verbose=False):
@@ -49,15 +63,4 @@ def get_inception_score(images, sess, batch_size, splits, pred_op, verbose=False
         preds.append(pred)
 
     preds = np.concatenate(preds, 0)
-    scores = []
-    for i in range(splits):
-        if verbose:
-            print("\rComputing score for slice %d/%d" % (i + 1, splits), end="", flush=True)
-
-        istart = i * preds.shape[0] // splits
-        iend = (i + 1) * preds.shape[0] // splits
-        part = preds[istart:iend, :]
-        kl = (part * (np.log(part) - np.log(np.expand_dims(np.mean(part, 0), 0))))
-        kl = np.mean(np.sum(kl, 1))
-        scores.append(np.exp(kl))
-    return np.mean(scores), np.std(scores)
+    return get_inception_from_predictions(preds, splits)
