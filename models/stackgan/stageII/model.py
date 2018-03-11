@@ -5,7 +5,7 @@ from utils.ops import batch_norm, conv2d, conv2d_transpose
 
 
 class ConditionalGan(object):
-    def __init__(self, stagei: StageI, cfg):
+    def __init__(self, stagei: StageI, cfg, build_model=True):
         """
         Args:
           cfg: Config specifying all the parameters of the model.
@@ -34,7 +34,8 @@ class ConditionalGan(object):
             'gamma': tf.random_normal_initializer(1., 0.02),
         }
 
-        self.build_model()
+        if build_model:
+            self.build_model()
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
@@ -47,18 +48,16 @@ class ConditionalGan(object):
         self.embed_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='phi_sample')
 
         stagei_g, _, _ = self.stagei.generator(self.z, self.embed_inputs, reuse=False)
-        stagei_g_sampler, _, _ = self.stagei.generator(self.z_sample, self.embed_sample, reuse=True, sampler=True)
+        stagei_g_sampler, _, _ = self.stagei.generator(self.z_sample, self.embed_sample, reuse=True, is_training=False)
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(stagei_g, self.embed_inputs, reuse=False)
         self.D_synthetic, self.D_synthetic_logits = self.discriminator(self.G, self.embed_inputs, reuse=False)
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.embed_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.embed_inputs,
                                                                                reuse=True)
-        self.sampler, _, _ = self.generator(stagei_g_sampler, self.embed_sample, reuse=True, sampler=True)
+        self.sampler, _, _ = self.generator(stagei_g_sampler, self.embed_sample, reuse=True, is_training=False)
 
-        t_vars = tf.trainable_variables()
-        self.d_vars = [var for var in t_vars if var.name.startswith('stageII_d_net')]
-        self.g_vars = [var for var in t_vars if var.name.startswith('stageII_g_net')]
-        self.stagei_g_vars = [var for var in t_vars if var.name.startswith('g_net')]
+        self.d_vars = tf.trainable_variables('stageII_d_net')
+        self.g_vars = tf.trainable_variables('stageII_g_net')
 
     def generate_conditionals(self, embeddings):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
@@ -172,7 +171,7 @@ class ConditionalGan(object):
 
         return conv2d(net_h3, self.image_dims[-1], ks=(3, 3), s=(1, 1), act=tf.nn.tanh)
 
-    def generator(self, image, embed, is_training=True, reuse=False, sampler=False):
+    def generator(self, image, embed, is_training=True, reuse=False):
         s = 64
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
