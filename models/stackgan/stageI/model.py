@@ -49,8 +49,7 @@ class ConditionalGan(object):
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.embed_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.embed_inputs,
                                                                                reuse=True)
-        self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, is_training=False, reuse=True,
-                                            sampler=True)
+        self.sampler, _, _ = self.generator(self.z_sample, self.embed_sample, is_training=False, reuse=True)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if var.name.startswith('d_net')]
@@ -101,17 +100,17 @@ class ConditionalGan(object):
             net_embed = tf.layers.dense(embed, units=self.compressed_embed_dim, activation=lrelu)
 
             # Append embeddings in depth
-            net_embed = tf.reshape(net_embed, [self.batch_size, 4, 4, -1])
+            net_embed = tf.expand_dims(tf.expand_dims(net_embed, 1), 1)
+            net_embed = tf.tile(net_embed, [1, 4, 4, 1])
             net_h4_concat = tf.concat([net_h4, net_embed], 3)
 
             net_h4 = conv2d(net_h4_concat, self.df_dim * 8, ks=(1, 1), s=(1, 1), padding='valid', init=self.w_init)
             net_h4 = batch_norm(net_h4, train=is_training, init=self.batch_norm_init, act=lrelu)
 
             net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.w_init)
-
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, embed, is_training=True, reuse=False, sampler=False):
+    def generator(self, z, embed, is_training=True, reuse=False):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -126,13 +125,7 @@ class ConditionalGan(object):
             net_h0 = tf.layers.dense(net_input, units=self.gf_dim*8*s16*s16, activation=None,
                                      kernel_initializer=self.w_init)
             net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init, act=None)
-            # --------------------------------------------------------
-
-            # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
-            if sampler:
-                net_h0 = tf.reshape(net_h0, [self.sample_num, s16, s16, -1])
-            else:
-                net_h0 = tf.reshape(net_h0, [self.batch_size, s16, s16, -1])
+            net_h0 = tf.reshape(net_h0, [-1, s16, s16, self.gf_dim * 8])
 
             # Residual layer
             net = conv2d(net_h0, self.gf_dim * 2, ks=(1, 1), s=(1, 1), padding='valid',  init=self.w_init)

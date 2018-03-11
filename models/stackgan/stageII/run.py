@@ -1,6 +1,7 @@
 import os
 
 from models.stackgan.stageI.model import ConditionalGan as ConditionalGanStageI
+from models.stackgan.stageII.eval_stageii import StageIIEval
 from models.stackgan.stageII.model import ConditionalGan
 from models.stackgan.stageII.trainer import ConditionalGanTrainer
 from utils.utils import pp, show_all_variables
@@ -34,7 +35,7 @@ def main(_):
     run_config.gpu_options.allow_growth = True
 
     datadir = cfg.DATASET_DIR
-    dataset = TextDataset(datadir, 4)
+    dataset = TextDataset(datadir, 256)
 
     filename_test = '%s/test' % datadir
     dataset._test = dataset.get_data(filename_test)
@@ -43,11 +44,21 @@ def main(_):
     dataset.train = dataset.get_data(filename_train)
 
     with tf.Session(config=run_config) as sess:
-        stage_i = ConditionalGanStageI(cfg_stage_i, build_model=False)
-        stage_ii = ConditionalGan(stage_i, cfg)
-        show_all_variables()
+        if cfg.EVAL.FLAG:
+            stage_i = ConditionalGanStageI(cfg_stage_i, build_model=False)
+            stage_ii = ConditionalGan(stage_i, cfg, build_model=False)
+            stage_ii_eval = StageIIEval(
+                sess=sess,
+                model=stage_ii,
+                dataset=dataset,
+                cfg=cfg,
+            )
+            stage_ii_eval.evaluate_inception()
 
         if cfg.TRAIN.FLAG:
+            stage_i = ConditionalGanStageI(cfg_stage_i, build_model=False)
+            stage_ii = ConditionalGan(stage_i, cfg)
+            show_all_variables()
             stage_ii_trainer = ConditionalGanTrainer(
                 sess=sess,
                 model=stage_ii,

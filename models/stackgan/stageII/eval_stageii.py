@@ -1,6 +1,4 @@
-from random import randint
-
-from models.stackgan.stageI.model import ConditionalGan
+from models.stackgan.stageII.model import ConditionalGan
 from utils.saver import load
 from utils.utils import denormalize_images
 from preprocess.dataset import TextDataset
@@ -11,7 +9,7 @@ from models.inception.model import load_inception_inference
 import os
 
 
-class StageIEval(object):
+class StageIIEval(object):
     def __init__(self, sess: tf.Session, model: ConditionalGan, dataset: TextDataset, cfg):
         self.sess = sess
         self.model = model
@@ -82,17 +80,26 @@ class StageIEval(object):
                                              self.cfg.EVAL.INCEP_CHECKPOINT_DIR)
         pred_op = tf.nn.softmax(logits)
 
-        z = tf.placeholder(tf.float32, [self.bs, self.model.z_dim], name='z')
-        cond = tf.placeholder(tf.float32, [self.bs] + [self.model.embed_dim], name='cond')
-        eval_gen, _, _ = self.model.generator(z, cond, reuse=False, is_training=False)
+        z = tf.placeholder(tf.float32, [self.bs, self.model.stagei.z_dim], name='z')
+        cond = tf.placeholder(tf.float32, [self.bs] + [self.model.stagei.embed_dim], name='cond')
+        stagei_gen, _, _ = self.model.stagei.generator(z, cond, reuse=False, is_training=False)
+        eval_gen, _, _ = self.model.generator(stagei_gen, cond, reuse=False, is_training=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
+        could_load, _ = load(saver, self.sess, self.model.stagei.cfg.CHECKPOINT_DIR)
+        if could_load:
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            raise RuntimeError('Could not load the checkpoints of stage I')
+
+        saver = tf.train.Saver(tf.global_variables('stageII_g_net'))
         could_load, _ = load(saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-            raise RuntimeError('Could not load the checkpoints of the generator')
+            raise RuntimeError('Could not load the checkpoints of stage II')
 
         print('Generating x...')
 
@@ -100,7 +107,7 @@ class StageIEval(object):
         n_batches = size // self.bs
 
         w, h, c = self.model.image_dims[0], self.model.image_dims[1], self.model.image_dims[2]
-        samples = np.zeros((n_batches * self.bs, w, h, c))
+        samples = np.zeros((n_batches * self.bs, w, h, c), dtype=np.uint8)
         for i in range(n_batches):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
