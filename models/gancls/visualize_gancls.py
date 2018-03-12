@@ -60,4 +60,29 @@ class GanClsVisualizer(object):
                     '{}/{}_visual/test2.png'.format(self.samples_dir, self.dataset.name))
         make_gif(samples, '{}/{}_visual/test2.gif'.format(self.samples_dir, self.dataset.name))
 
+        # -------------------------------------------------------------
+
+        sample_z = np.random.uniform(-1, 1, size=(64, self.model.z_dim))
+        _, conditions, _, captions = self.dataset.test.next_batch_test(2, 0, 1)
+        conditions = np.squeeze(conditions, axis=0)
+
+        cond = np.expand_dims(conditions[0], 0)
+        conditions = np.tile(cond, reps=(64, 1))
+
+        caption = captions[0][0]
+
+        samples = self.sess.run(self.model.sampler,
+                                feed_dict={
+                                    self.model.z_sample: sample_z,
+                                    self.model.phi_sample: conditions,
+                                })
+
+        save_captioned_batch(samples, caption, './samples/test.jpg')
+
+
+
+
+
+
+
 
