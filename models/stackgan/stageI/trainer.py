@@ -3,7 +3,7 @@ from random import randint
 import tensorflow as tf
 
 from models.stackgan.stageI.model import ConditionalGan
-from utils.utils import save_images, image_manifold_size
+from utils.utils import save_images, get_balanced_factorization
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
@@ -150,7 +150,7 @@ class ConditionalGanTrainer(object):
                                                             self.model.z_sample: sample_z,
                                                             self.model.embed_sample: sample_embed,
                                                           })
-                        save_images(samples, image_manifold_size(samples.shape[0]),
+                        save_images(samples, get_balanced_factorization(samples.shape[0]),
                                     '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
 

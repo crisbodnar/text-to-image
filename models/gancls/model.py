@@ -96,7 +96,7 @@ class GanCls(object):
             # Append embeddings in depth
             net_embed = tf.expand_dims(tf.expand_dims(net_embed, 1), 1)
             net_embed = tf.tile(net_embed, [1, 4, 4, 1])
-            net_h4_concat = tf.concat([net_h4, net_embed], 3)
+            net_h4_concat = tf.concat([net_h4, net_embed], axis=3)
 
             net_h4 = tf.layers.conv2d(inputs=net_h4_concat, filters=self.df_dim * 8, kernel_size=(1, 1), strides=(1, 1),
                                       padding='valid', activation=None, kernel_initializer=self.w_init)

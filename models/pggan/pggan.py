@@ -1,8 +1,8 @@
 import tensorflow as tf
 import time
 
-from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm, batch_norm, layer_norm
-from utils.utils import save_images, image_manifold_size, show_all_variables, save_captions, print_vars, \
+from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm
+from utils.utils import save_images, get_balanced_factorization, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
 import numpy as np
@@ -215,7 +215,8 @@ class PGGAN(object):
                         samples = np.clip(samples, -1., 1.)
                         if self.output_size > 256:
                             samples = samples[:4]
-                        save_images(samples, image_manifold_size(samples.shape[0]),
+
+                        save_images(samples, get_balanced_factorization(samples.shape[0]),
                                     '{}train_{:02d}_{:04d}.png'.format(self.sample_path, epoch, idx))
 
                     except Exception as e:
