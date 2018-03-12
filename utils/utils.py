@@ -2,15 +2,11 @@
 Some codes from https://github.com/Newmu/dcgan_code
 """
 import math
-import random
 import pprint
 import scipy.misc
 import numpy as np
-from time import gmtime, strftime
 import os
 import imageio
-from PIL import Image
-from itertools import chain
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
@@ -118,83 +114,10 @@ def make_gif(images, fname, duration=2, true_image=False):
             return ((x + 1) / 2 * 255).astype(np.uint8)
 
     clip = mpy.VideoClip(make_frame, duration=duration)
+
+    if not os.path.exists(os.path.dirname(fname)):
+        os.makedirs(os.path.dirname(fname))
     clip.write_gif(fname, fps=len(images) / duration)
-
-
-def visualize(sess, dcgan, config, option):
-    image_frame_dim = int(math.ceil(config.batch_size**.5))
-    if option == 0:
-        # Save super image
-        z_sample = np.random.uniform(-0.5, 0.5, size=(config.batch_size, dcgan.z_dim))
-        samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-        save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
-    elif option == 1:
-        # Incremental constant z vectors
-        values = np.arange(0, 1, 1./config.batch_size)
-        for idx in range(dcgan.z_dim):
-            print(" [*] %d" % idx)
-            z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
-            for kdx, z in enumerate(z_sample):
-                z[idx] = values[kdx]
-
-            if config.dataset == "mnist":
-                y = np.random.choice(10, config.batch_size)
-                y_one_hot = np.zeros((config.batch_size, 10))
-                y_one_hot[np.arange(config.batch_size), y] = 1
-
-                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
-            else:
-                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-
-            save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
-    elif option == 2:
-        values = np.arange(0, 1, 1./config.batch_size)
-        for idx in [random.randint(0, dcgan.z_dim - 1) for _ in range(dcgan.z_dim)]:
-            print(" [*] %d" % idx)
-            z = np.random.uniform(-0.2, 0.2, size=(dcgan.z_dim))
-            z_sample = np.tile(z, (config.batch_size, 1))
-            #z_sample = np.zeros([config.batch_size, dcgan.z_dim])
-            for kdx, z in enumerate(z_sample):
-                z[idx] = values[kdx]
-
-            if config.dataset == "mnist":
-                y = np.random.choice(10, config.batch_size)
-                y_one_hot = np.zeros((config.batch_size, 10))
-                y_one_hot[np.arange(config.batch_size), y] = 1
-
-                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
-            else:
-                samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-
-            try:
-                make_gif(samples, './samples/test_gif_%s.gif' % (idx))
-            except:
-                save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
-    elif option == 3:
-        values = np.arange(0, 1, 1./config.batch_size)
-        for idx in range(dcgan.z_dim):
-            print(" [*] %d" % idx)
-            z_sample = np.zeros([config.batch_size, dcgan.z_dim])
-            for kdx, z in enumerate(z_sample):
-                z[idx] = values[kdx]
-
-            samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-            make_gif(samples, './samples/test_gif_%s.gif' % (idx))
-    elif option == 4:
-        image_set = []
-        values = np.arange(0, 1, 1./config.batch_size)
-
-        for idx in range(dcgan.z_dim):
-            print(" [*] %d" % idx)
-            z_sample = np.zeros([config.batch_size, dcgan.z_dim])
-            for kdx, z in enumerate(z_sample): z[idx] = values[kdx]
-
-            image_set.append(sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample}))
-            make_gif(image_set[-1], './samples/test_gif_%s.gif' % (idx))
-
-        new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10]) \
-                         for idx in range(64) + range(63, -1, -1)]
-        make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
 
 
 def get_balanced_factorization(x):
@@ -252,8 +175,7 @@ def preprocess_inception_images(img):
     # img = Image.fromarray(img, 'RGB')
     if len(img.shape) == 2:
         img = np.resize(img, (img.shape[0], img.shape[1], 3))
-    img = scipy.misc.imresize(img, (299, 299, 3),
-                              interp='bilinear')
+    img = scipy.misc.imresize(img, (299, 299, 3), interp='bilinear')
     img = img.astype(np.float32)
     # [0, 255] --> [0, 1] --> [-1, 1]
     img = img / 127.5 - 1.
@@ -275,6 +197,13 @@ def initialize_uninitialized(sess, verbose=True):
         print_vars(not_initialized_vars)
     if len(not_initialized_vars):
         sess.run(tf.variables_initializer(not_initialized_vars))
+
+
+def resize_imgs(imgs, size):
+    res = []
+    for img in imgs:
+        res.append(scipy.misc.imresize(img, size, 'bicubic'))
+    return res
 
 
 def print_vars(vars):

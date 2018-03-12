@@ -1,7 +1,10 @@
 import numpy as np
+import scipy
 from scipy import misc
 from PIL import Image, ImageDraw, ImageFont
-from utils.utils import denormalize_images
+
+from preprocess.dataset import TextDataset
+from utils.utils import denormalize_images, resize_imgs
 import os
 
 
@@ -133,6 +136,7 @@ def save_interp_cap_batch(img_batch, cap1, cap2, path, rows=None):
 
 
 def gen_noise_interp_img(sess, gen_op, cond, z_dim, batch_size):
+    """Generates a batch of images interpolated in the noise space"""
     z = np.random.standard_normal(size=(2, z_dim))
     sample_z = get_interpolated_batch(z[0], z[1], batch_size=batch_size, method='slerp')
     cond = np.expand_dims(cond, 0)
@@ -147,6 +151,7 @@ def gen_noise_interp_img(sess, gen_op, cond, z_dim, batch_size):
 
 
 def gen_cond_interp_img(sess, gen_op, cond1, cond2, z_dim, batch_size):
+    """Generates a batch of images interpolated in the condition space"""
     sample_z = np.random.standard_normal(size=(batch_size, z_dim))
     cond = get_interpolated_batch(cond1, cond2, batch_size=batch_size, method='lerp')
 
@@ -159,6 +164,7 @@ def gen_cond_interp_img(sess, gen_op, cond1, cond2, z_dim, batch_size):
 
 
 def gen_captioned_img(sess, gen_op, cond, z_dim, batch_size):
+    """Generates a batch of images with the same caption"""
     sample_z = np.random.standard_normal(size=(batch_size, z_dim))
     cond = np.tile(np.expand_dims(cond, 0), reps=(batch_size, 1))
 
@@ -168,3 +174,60 @@ def gen_captioned_img(sess, gen_op, cond, z_dim, batch_size):
     })
 
     return samples
+
+
+def closest_image(fake_img, dataset: TextDataset):
+    """Finds the closest image from the dataset of a given image"""
+    min_distance = float('inf')
+    closest_img = None
+    for idx in range(dataset.train.num_examples):
+        imgs, _, _, captions = dataset.train.next_batch_test(1, idx, 1)
+        real_img = imgs[0]
+        # caption = captions[0]
+
+        dist = np.linalg.norm(fake_img - real_img)
+        if min_distance > dist:
+            min_distance = dist
+            closest_img = real_img
+    return closest_img
+
+
+def closest_images_of_batch(fake_imgs, dataset: TextDataset):
+    """Finds the closest images of a given batch of images"""
+    closest_batch = []
+    for img in fake_imgs:
+        closest_batch.append(closest_image(img, dataset))
+    return np.array(closest_batch)
+
+
+def gen_closest_neighbour_img(sess, gen_op, cond, z_dim, batch_size, dataset):
+    """Generates a batch of images and appends to it their closest neighbours"""
+    sample_z = np.random.standard_normal(size=(batch_size, z_dim))
+
+    samples = sess.run(gen_op, feed_dict={
+        'z:0': sample_z,
+        'cond:0': cond,
+    })
+    samples = samples[:8]
+
+    neighbours = closest_images_of_batch(samples, dataset)
+    return samples, neighbours
+
+
+def gen_multiple_stage_img(sess, gen_ops, cond, z_dim, batch_size, size=128):
+    """Generates a batch of images from multiple generator stages"""
+    sample_z = np.random.standard_normal(size=(batch_size, z_dim))
+
+    imgs = []
+    for gen_op in gen_ops:
+        samples = sess.run(gen_op, feed_dict={
+            'z:0': sample_z,
+            'cond:0': cond,
+        })
+        samples = samples[:8]
+        samples = (samples + 1.0) * 127.5
+        samples = resize_imgs(samples, (size, size))
+        samples = np.array(samples) / 127.5 - 1.0
+        imgs.extend(samples)
+
+    return np.array(imgs)

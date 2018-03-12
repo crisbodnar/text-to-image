@@ -70,18 +70,3 @@ def mkdir_p(path):
         else:
             raise
 
-
-def closest_image(fake_img, dataset: TextDataset):
-    min_distance = float('inf')
-    closest_img = None
-    for idx in range(dataset.train.num_examples):
-        imgs, _, _, captions = dataset.train.next_batch_test(1, idx, 1)
-        real_img = imgs[0]
-        # caption = captions[0]
-
-        dist = np.linalg.norm(fake_img - real_img)
-        if min_distance > dist:
-            min_distance = dist
-            closest_img = real_img
-    return closest_img
-

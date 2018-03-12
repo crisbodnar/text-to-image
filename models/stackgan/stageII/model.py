@@ -68,10 +68,12 @@ class ConditionalGan(object):
                                     activation=lambda l: tf.nn.leaky_relu(l, 0.2), kernel_initializer=self.w_init)
         return mean, log_sigma
 
-    def sample_normal_conditional(self, mean, log_sigma):
-        epsilon = tf.truncated_normal(tf.shape(mean))
-        stddev = tf.exp(log_sigma)
-        return mean + stddev * epsilon
+    def sample_normal_conditional(self, mean, log_sigma, cond_noise):
+        if cond_noise:
+            epsilon = tf.truncated_normal(tf.shape(mean))
+            stddev = tf.exp(log_sigma)
+            return mean + stddev * epsilon
+        return mean
 
     def discriminator(self, inputs, embed, is_training=True, reuse=False):
         s16 = self.output_size // 64
@@ -171,7 +173,7 @@ class ConditionalGan(object):
 
         return conv2d(net_h3, self.image_dims[-1], ks=(3, 3), s=(1, 1), act=tf.nn.tanh)
 
-    def generator(self, image, embed, is_training=True, reuse=False):
+    def generator(self, image, embed, is_training=True, reuse=False, cond_noise=True):
         s = 64
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -180,7 +182,7 @@ class ConditionalGan(object):
 
             # Sample from the multivariate normal distribution of the embeddings
             mean, log_sigma = self.generate_conditionals(embed)
-            net_embed = self.sample_normal_conditional(mean, log_sigma)
+            net_embed = self.sample_normal_conditional(mean, log_sigma, cond_noise)
             # --------------------------------------------------------
 
             # Concatenate the encoded image and the embeddings
