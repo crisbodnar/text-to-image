@@ -56,7 +56,7 @@ class GanClsVisualizer(object):
         caption = captions[0][0]
         samples = gen_captioned_img(self.sess, gen, conditions[0], self.model.z_dim, self.model.batch_size)
 
-        save_captioned_batch(samples, caption, '{}/{}_visual/caption.png'.format(self.samples_dir, self.dataset.name))
+        save_cap_batch(samples, caption, '{}/{}_visual/caption.png'.format(self.samples_dir, self.dataset.name))
 
 
 

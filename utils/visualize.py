@@ -2,6 +2,7 @@ import numpy as np
 from scipy import misc
 from PIL import Image, ImageDraw, ImageFont
 from utils.utils import denormalize_images
+import os
 
 
 def slerp(a, b, miu):
@@ -30,7 +31,7 @@ def get_interpolated_batch(a, b, batch_size=64, method='slerp'):
 
     step_size = 1 / batch_size
     interp = []
-    for val in np.arange(0.0, 1.0, step_size):
+    for val in np.arange(1.0, 0.0, -step_size):
         if method == 'slerp':
             interp.append(slerp(a, b, val))
         elif method == 'lerp':
@@ -45,7 +46,7 @@ def interp_z(sess, gen_op, cond_sample, z1, z2, z='z:0', cond='cond:0', method='
     return sess.run(gen_op, feed_dict={z: z_batch, cond: cond_sample})
 
 
-def write_caption(img, caption, font_size):
+def write_caption(img, caption, font_size, vert_pos):
     """Writes a caption on the top row of the provided image. Blank space should be left on the top row."""
     img_txt = Image.fromarray(img)
     # get a font
@@ -59,26 +60,39 @@ def write_caption(img, caption, font_size):
     # get a drawing context
     d = ImageDraw.Draw(img_txt)
 
-    idx = caption.find(' ', 60)
+    idx = caption.find(' ', 50)
     if idx == -1:
         # Write the caption on one row
-        d.text((10, 10), caption, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), caption, font=fnt, fill=(255, 255, 255, 255))
     else:
         # Write the caption on two rows
         cap1 = caption[:idx]
         cap2 = caption[idx + 1:]
-        d.text((10, 10), cap1, font=fnt, fill=(255, 255, 255, 255))
-        d.text((10, 10 + font_size), cap2, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), cap1, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos + font_size), cap2, font=fnt, fill=(255, 255, 255, 255))
+    return np.array(img_txt)
 
-    return img_txt
 
-
-def save_captioned_batch(img_batch, caption, path, rows=2):
+def save_cap_batch(img_batch, caption, path, rows=None):
     """Creates a super image of generated images with the caption of the images written on a top blank row."""
+    img_shape = img_batch[0].shape
+    font_size = img_shape[0] // 3 - 2
+    super_img = prepare_img_for_captioning(img_batch, bottom=False, rows=rows)
+
+    super_img = Image.fromarray(write_caption(super_img, caption, font_size, 10))
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    misc.imsave(path, super_img)
+
+
+def prepare_img_for_captioning(img_batch, bottom, rows=None):
     # Show at most 8 images per row
     batch_size = img_batch.shape[0]
     n = min(8, batch_size)
     img_shape = img_batch[0].shape
+
+    if rows is None:
+        rows = batch_size // n
 
     # Leave top row empty for the caption text
     text_row = np.tile(np.zeros(img_shape), reps=(1, n, 1))
@@ -95,15 +109,34 @@ def save_captioned_batch(img_batch, caption, path, rows=2):
             row = np.concatenate(row, axis=1)
             super_img = np.concatenate([super_img, row], axis=0)
 
-    font_size = img_shape[0] // 3
+    if bottom:
+        super_img = np.concatenate([super_img, text_row], axis=0)
+
     super_img = super_img.astype(np.uint8)
-    super_img = write_caption(super_img, caption, font_size)
+    return super_img
+
+
+def save_interp_cap_batch(img_batch, cap1, cap2, path, rows=None):
+    """Creates a super image of interpolated captions."""
+    """Creates a super image of generated images with the caption of the images written on a top blank row."""
+    img_shape = img_batch[0].shape
+    font_size = img_shape[0] // 3 - 2
+    super_img = prepare_img_for_captioning(img_batch, bottom=True, rows=rows)
+
+    super_img = write_caption(super_img, cap1, font_size, 10)
+    super_img = write_caption(super_img, cap2, font_size, super_img.shape[0] - img_shape[0] + 10)
+    super_img = Image.fromarray(super_img)
+
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
     misc.imsave(path, super_img)
 
 
 def gen_noise_interp_img(sess, gen_op, cond, z_dim, batch_size):
     z = np.random.standard_normal(size=(2, z_dim))
     sample_z = get_interpolated_batch(z[0], z[1], batch_size=batch_size, method='slerp')
+    cond = np.expand_dims(cond, 0)
+    cond = np.tile(cond, reps=(batch_size, 1))
 
     samples = sess.run(gen_op, feed_dict={
         'z:0': sample_z,

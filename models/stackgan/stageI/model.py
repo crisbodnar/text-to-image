@@ -66,10 +66,12 @@ class ConditionalGan(object):
                                     activation=lrelu, kernel_initializer=self.w_init)
         return mean, log_sigma
 
-    def sample_normal_conditional(self, mean, log_sigma):
-        epsilon = tf.truncated_normal(tf.shape(mean))
-        stddev = tf.exp(log_sigma)
-        return mean + stddev * epsilon
+    def sample_normal_conditional(self, mean, log_sigma, cond_noise=True):
+        if cond_noise:
+            epsilon = tf.truncated_normal(tf.shape(mean))
+            stddev = tf.exp(log_sigma)
+            return mean + stddev * epsilon
+        return mean
 
     def discriminator(self, inputs, embed, is_training=True, reuse=False):
         s16 = self.output_size / 16
@@ -110,14 +112,14 @@ class ConditionalGan(object):
             net_logits = conv2d(net_h4, 1, ks=(s16, s16), s=(s16, s16), padding='valid', init=self.w_init)
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, embed, is_training=True, reuse=False):
+    def generator(self, z, embed, is_training=True, reuse=False, cond_noise=True):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
         with tf.variable_scope("g_net", reuse=reuse):
             # Sample from the multivariate normal distribution of the embeddings
             mean, log_sigma = self.generate_conditionals(embed)
-            net_embed = self.sample_normal_conditional(mean, log_sigma)
+            net_embed = self.sample_normal_conditional(mean, log_sigma, cond_noise)
             # --------------------------------------------------------
 
             # Concatenate the sampled embedding with the z vector
