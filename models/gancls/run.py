@@ -61,7 +61,7 @@ def main(_):
             )
             gancls_trainer.train()
         else:
-            gancls = GanCls(cfg)
+            gancls = GanCls(cfg, build_model=False)
             gancls_visualiser = GanClsVisualizer(
                 sess=sess,
                 model=gancls,

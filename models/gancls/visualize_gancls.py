@@ -11,74 +11,52 @@ class GanClsVisualizer(object):
     def __init__(self, sess: tf.Session, model: GanCls, dataset: TextDataset, config):
         self.sess = sess
         self.model = model
-        self.sampler = model.sampler
         self.dataset = dataset
         self.config = config
-        self.saver = tf.train.Saver()
         self.samples_dir = self.config.SAMPLE_DIR
 
-        could_load, _ = load(self.saver, self.sess, self.config.CHECKPOINT_DIR)
+    def visualize(self):
+        z = tf.placeholder(tf.float32, [self.model.batch_size, self.model.z_dim], name='z')
+        cond = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
+        gen = self.model.generator(z, cond, is_training=False)
+
+        saver = tf.train.Saver(tf.global_variables('g_net'))
+        could_load, _ = load(saver, self.sess, self.config.CHECKPOINT_DIR)
         if could_load:
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
             raise LookupError('Could not load any checkpoints')
 
-    def visualize(self):
-        z = np.random.uniform(-1, 1, size=(2, self.model.z_dim))
-        z1, z2 = z[0], z[1]
+        # Interpolation in z space:
+        # ---------------------------------------------------------------------------------------------------------
         _, _, cond, _, _ = self.dataset.test.next_batch(1, window=4, embeddings=True)
         cond = np.tile(cond, reps=[64, 1])
 
-        sample_z = get_interpolated_batch(z1, z2, method='lerp')
-
-        samples = self.sess.run(self.model.sampler,
-                                feed_dict={
-                                    self.model.z_sample: sample_z,
-                                    self.model.phi_sample: cond,
-                                })
-
+        samples = gen_noise_interp_img(self.sess, gen, cond, self.model.z_dim, self.model.batch_size)
         save_images(samples, get_balanced_factorization(samples.shape[0]),
                     '{}/{}_visual/test1.png'.format(self.samples_dir, self.dataset.name))
-        # ---------------------------------------------
 
-        sample_z = np.random.uniform(-1, 1, size=(64, self.model.z_dim))
+        # Interpolation in embedding space:
+        # ---------------------------------------------------------------------------------------------------------
 
         _, cond, _, _ = self.dataset.test.next_batch_test(2, 0, 1)
         cond = np.squeeze(cond, axis=0)
         cond1, cond2 = cond[0], cond[1]
 
-        cond = get_interpolated_batch(cond1, cond2, method='slerp')
-
-        samples = self.sess.run(self.model.sampler,
-                                feed_dict={
-                                    self.model.z_sample: sample_z,
-                                    self.model.phi_sample: cond,
-                                })
-
+        samples = gen_cond_interp_img(self.sess, gen, cond1, cond2, self.model.z_dim, self.model.batch_size)
         save_images(samples, get_balanced_factorization(samples.shape[0]),
                     '{}/{}_visual/test2.png'.format(self.samples_dir, self.dataset.name))
         make_gif(samples, '{}/{}_visual/test2.gif'.format(self.samples_dir, self.dataset.name))
 
-        # -------------------------------------------------------------
-
-        sample_z = np.random.uniform(-1, 1, size=(64, self.model.z_dim))
+        # Generate captioned image
+        # ---------------------------------------------------------------------------------------------------------
         _, conditions, _, captions = self.dataset.test.next_batch_test(2, 0, 1)
         conditions = np.squeeze(conditions, axis=0)
-
-        cond = np.expand_dims(conditions[0], 0)
-        conditions = np.tile(cond, reps=(64, 1))
-
         caption = captions[0][0]
+        samples = gen_captioned_img(self.sess, gen, conditions[0], self.model.z_dim, self.model.batch_size)
 
-        samples = self.sess.run(self.model.sampler,
-                                feed_dict={
-                                    self.model.z_sample: sample_z,
-                                    self.model.phi_sample: conditions,
-                                })
-
-        save_captioned_batch(samples, caption, './samples/test.jpg')
-
+        save_captioned_batch(samples, caption, '{}/{}_visual/caption.png'.format(self.samples_dir, self.dataset.name))
 
 
 

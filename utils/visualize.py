@@ -49,7 +49,13 @@ def write_caption(img, caption, font_size):
     """Writes a caption on the top row of the provided image. Blank space should be left on the top row."""
     img_txt = Image.fromarray(img)
     # get a font
-    fnt = ImageFont.truetype('/Library/Fonts/Arial.ttf', font_size)
+    try:
+        fnt = ImageFont.truetype('/Library/Fonts/Arial.ttf', font_size)  # MacOS
+    except OSError:
+        try:
+            fnt = ImageFont.truetype('arial.ttf', font_size)  # Windows
+        except OSError:
+            fnt = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', font_size)  # Linux
     # get a drawing context
     d = ImageDraw.Draw(img_txt)
 
@@ -93,3 +99,39 @@ def save_captioned_batch(img_batch, caption, path, rows=2):
     super_img = super_img.astype(np.uint8)
     super_img = write_caption(super_img, caption, font_size)
     misc.imsave(path, super_img)
+
+
+def gen_noise_interp_img(sess, gen_op, cond, z_dim, batch_size):
+    z = np.random.standard_normal(size=(2, z_dim))
+    sample_z = get_interpolated_batch(z[0], z[1], batch_size=batch_size, method='slerp')
+
+    samples = sess.run(gen_op, feed_dict={
+        'z:0': sample_z,
+        'cond:0': cond,
+    })
+
+    return samples
+
+
+def gen_cond_interp_img(sess, gen_op, cond1, cond2, z_dim, batch_size):
+    sample_z = np.random.standard_normal(size=(batch_size, z_dim))
+    cond = get_interpolated_batch(cond1, cond2, batch_size=batch_size, method='lerp')
+
+    samples = sess.run(gen_op, feed_dict={
+        'z:0': sample_z,
+        'cond:0': cond,
+    })
+
+    return samples
+
+
+def gen_captioned_img(sess, gen_op, cond, z_dim, batch_size):
+    sample_z = np.random.standard_normal(size=(batch_size, z_dim))
+    cond = np.tile(np.expand_dims(cond, 0), reps=(batch_size, 1))
+
+    samples = sess.run(gen_op, feed_dict={
+        'z:0': sample_z,
+        'cond:0': cond,
+    })
+
+    return samples
