@@ -1,9 +1,7 @@
-from random import randint
-
 import tensorflow as tf
 
 from models.stackgan.stageII.model import ConditionalGan
-from utils.utils import save_images, get_balanced_factorization
+from utils.utils import save_images, get_balanced_factorization, initialize_uninitialized, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
 import numpy as np
@@ -24,7 +22,7 @@ class ConditionalGanTrainer(object):
                                                     labels=tf.zeros_like(self.model.D_synthetic)))
         self.D_real_match_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_real_match_logits,
-                                                    labels=tf.fill(self.model.D_real_match.get_shape(), 0.9)))
+                                                    labels=tf.fill(self.model.D_real_match.get_shape(), 0.95)))
         self.D_real_mismatch_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_real_mismatch_logits,
                                                     labels=tf.zeros_like(self.model.D_real_mismatch)))
@@ -44,14 +42,18 @@ class ConditionalGanTrainer(object):
         self.G_loss_summ = tf.summary.scalar("g_loss", self.G_loss)
         self.D_loss_summ = tf.summary.scalar("d_loss", self.D_loss)
 
-        self.stagei_g_saver = tf.train.Saver(self.model.stagei_g_vars)
-        self.stageii_saver = tf.train.Saver(var_list=self.model.g_vars + self.model.d_vars,
+        stagei_vars = tf.global_variables('g_net')
+        stageii_vars = tf.global_variables('stageII_g_net') + tf.global_variables('stageII_d_net')
+        self.stagei_g_saver = tf.train.Saver(stagei_vars)
+        self.stageii_saver = tf.train.Saver(var_list=stageii_vars,
                                             max_to_keep=self.cfg.TRAIN.CHECKPOINTS_TO_KEEP)
 
-        self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
-            .minimize(self.D_loss, var_list=self.model.d_vars)
-        self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
-            .minimize(self.G_loss, var_list=self.model.g_vars)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
+                .minimize(self.D_loss, var_list=self.model.d_vars)
+            self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
+                .minimize(self.G_loss, var_list=self.model.g_vars)
 
     def kl_loss(self, mean, log_sigma):
         loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
@@ -94,22 +96,15 @@ class ConditionalGanTrainer(object):
         self.define_summaries()
 
         sample_z = np.random.normal(0, 1, (self.model.sample_num, self.model.z_dim))
-        _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
-                                                                         randint(0, self.dataset.test.num_examples), 1)
+        _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num, 0, 1)
         sample_embed = np.squeeze(sample_embed, axis=0)
         print(sample_embed.shape)
 
-        # Display the captions of the sampled images
-        print('\nCaptions of the sampled x:')
-        for caption_idx, caption_batch in enumerate(captions):
-            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
-        print()
+        save_captions(self.cfg.SAMPLE_DIR, captions)
 
         counter = 1
         start_time = time.time()
 
-        # Try to load the parameters of the stage II networks
-        tf.global_variables_initializer().run()
         could_load, checkpoint_counter = load(self.stageii_saver, self.sess, self.cfg.CHECKPOINT_DIR)
         if could_load:
             counter = checkpoint_counter
@@ -119,34 +114,37 @@ class ConditionalGanTrainer(object):
 
         could_load, checkpoint_counter = load(self.stagei_g_saver, self.sess, self.cfg_stage_i.CHECKPOINT_DIR)
         if could_load:
-            counter = checkpoint_counter
             print(" [*] Load SUCCESS: Stage I generator is loaded")
         else:
             print(" [!] WARNING!!! Failed to load the parameters for stage I generator...")
+
+        initialize_uninitialized(self.sess)
 
         for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size
             updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
 
             for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4)
+                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
+                                                                                  embeddings=True,
+                                                                                  wrong_img=True)
                 batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
+                feed_dict = {
+                    self.model.inputs: images,
+                    self.model.wrong_inputs: wrong_images,
+                    self.model.embed_inputs: embed,
+                    self.model.z: batch_z
+                }
+
                 # Update D network
-                _, err_d_real_match, err_d_real_mismatch, err_d_fake, err_d, summary_str = self.sess.run(
-                    [self.D_optim, self.D_real_match_loss, self.D_real_mismatch_loss, self.D_synthetic_loss,
-                     self.D_loss, self.D_merged_summ],
-                    feed_dict={
-                        self.model.inputs: images,
-                        self.model.wrong_inputs: wrong_images,
-                        self.model.embed_inputs: embed,
-                        self.model.z: batch_z
-                    })
+                _, err_d, summary_str = self.sess.run([self.D_optim, self.D_loss, self.D_merged_summ],
+                                                      feed_dict=feed_dict)
                 self.writer.add_summary(summary_str, counter)
 
                 # Update G network
                 _, err_g, summary_str = self.sess.run([self.G_optim, self.G_loss, self.G_merged_summ],
-                                                      feed_dict={self.model.z: batch_z, self.model.embed_inputs: embed})
+                                                      feed_dict=feed_dict)
                 self.writer.add_summary(summary_str, counter)
 
                 counter += 1
@@ -163,13 +161,6 @@ class ConditionalGanTrainer(object):
                                                           })
                         save_images(samples, get_balanced_factorization(samples.shape[0]),
                                     '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
-                        print("[Sample] d_loss: %.8f, g_loss: %.8f" % (err_d, err_g))
-
-                        # Display the captions of the sampled images
-                        print('\nCaptions of the sampled x:')
-                        for caption_idx, caption_batch in enumerate(captions):
-                            print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
-                        print()
                     except Exception as e:
                         print("Failed to generate sample image")
                         print(type(e))
