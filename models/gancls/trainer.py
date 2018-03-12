@@ -80,7 +80,7 @@ class GanClsTrainer(object):
 
         tf.global_variables_initializer().run()
 
-        sample_z = np.random.uniform(-1, 1, size=(self.model.sample_num, self.model.z_dim))
+        sample_z = np.random.normal(0, 1, size=(self.model.sample_num, self.model.z_dim))
         _, sample_embed, _, captions = self.dataset.test.next_batch_test(self.model.sample_num,
                                                                          randint(0, self.dataset.test.num_examples), 1)
         sample_embed = np.squeeze(sample_embed, axis=0)
@@ -109,7 +109,7 @@ class GanClsTrainer(object):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
                                                                                   embeddings=True,
                                                                                   wrong_img=True)
-                batch_z = np.random.uniform(-1, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
+                batch_z = np.random.normal(0, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
 
                 # Update D network
                 _, err_d_real_match, err_d_real_mismatch, err_d_fake, err_d, summary_str = self.sess.run(
