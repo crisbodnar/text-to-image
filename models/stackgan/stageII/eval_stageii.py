@@ -1,6 +1,6 @@
 from models.stackgan.stageII.model import ConditionalGan
 from utils.saver import load
-from utils.utils import denormalize_images
+from utils.utils import denormalize_images, prep_incep_img
 from preprocess.dataset import TextDataset
 import tensorflow as tf
 import numpy as np
@@ -46,21 +46,19 @@ class StageIIEval(object):
             print(" [!] Load failed...")
             raise RuntimeError('Could not load the checkpoints of the generator')
 
-        print('Generating x...')
+        print('Generating batches...')
 
         fid_size = self.cfg.EVAL.SIZE
         n_batches = fid_size // self.bs
 
         w, h, c = self.model.image_dims[0], self.model.image_dims[1], self.model.image_dims[2]
-        samples = np.zeros((n_batches * self.bs, w, h, c))
+        # Evaluate each bach on inception dynamically to avoid getting out of memory
         for i in range(n_batches):
-            start = i * self.bs
-            end = start + self.bs
-
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
             images, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
-            samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
+            samples = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
+
 
         print('Computing activation statistics for generated x...')
         mu_gen, sigma_gen = fid.calculate_activation_statistics(samples, self.sess, incep_batch_size, act_op,
@@ -101,26 +99,35 @@ class StageIIEval(object):
             print(" [!] Load failed...")
             raise RuntimeError('Could not load the checkpoints of stage II')
 
-        print('Generating x...')
+        print('Generating batches...')
 
         size = self.cfg.EVAL.SIZE
         n_batches = size // self.bs
 
-        w, h, c = self.model.image_dims[0], self.model.image_dims[1], self.model.image_dims[2]
-        samples = np.zeros((n_batches * self.bs, w, h, c), dtype=np.uint8)
+        all_preds = []
         for i in range(n_batches):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
             _, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
-            start = i * self.bs
-            end = start + self.bs
 
+            # Generate a batch and scale it up for inception
             gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed})
-            samples[start: end] = denormalize_images(gen_batch)
+
+            samples = denormalize_images(gen_batch)
+            incep_samples = np.empty((self.bs, 299, 299, 3))
+            for sample_idx in range(self.bs):
+                incep_samples[sample_idx] = prep_incep_img(samples[sample_idx])
+
+            # Run prediction for current batch
+            pred = self.sess.run(pred_op, feed_dict={'inputs:0': incep_samples})
+            all_preds.append(pred)
+
+        # Get rid of the first dimension
+        all_preds = np.concatenate(all_preds, 0)
 
         print('\nComputing inception score...')
-        mean, std = inception_score.get_inception_score(samples, self.sess, incep_batch_size, 10, pred_op, verbose=True)
+        mean, std = inception_score.get_inception_from_predictions(all_preds, 10)
         print('Inception Score | mean:', "%.2f" % mean, 'std:', "%.2f" % std)
 
 

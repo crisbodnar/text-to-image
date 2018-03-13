@@ -17,7 +17,7 @@
 
 import numpy as np
 import math
-from utils.utils import preprocess_inception_images
+from utils.utils import prep_incep_img
 
 
 def get_inception_from_predictions(preds, splits, verbose=True):
@@ -53,7 +53,7 @@ def get_inception_score(images, sess, batch_size, splits, pred_op, verbose=False
             if (i*batch_size + j) == num_examples:
                 break
             img = images[indices[i*batch_size + j]]
-            img = preprocess_inception_images(img)
+            img = prep_incep_img(img)
             inp.append(img)
 
         if verbose:

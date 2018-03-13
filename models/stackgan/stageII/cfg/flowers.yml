@@ -34,10 +34,10 @@ TRAIN:
     KL: 2.0
 
 EVAL:
-  FLAG: False
+  FLAG: True
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 32
-  INCEP_BATCH_SIZE: 64
+  INCEP_BATCH_SIZE: 32
   NUM_CLASSES: 20
   SIZE: 10000
   ACT_STAT_PATH: ./data/fid/flowers/stats.npz

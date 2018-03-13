@@ -170,7 +170,7 @@ def load_inception_data(full_path, alphabetic=False):
     return images
 
 
-def preprocess_inception_images(img):
+def prep_incep_img(img):
     # print('img', img.shape, img.max(), img.min())
     # img = Image.fromarray(img, 'RGB')
     if len(img.shape) == 2:

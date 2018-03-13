@@ -4,7 +4,7 @@ import tensorflow as tf
 from scipy import spatial
 import numpy as np
 
-from utils.utils import load_inception_data, preprocess_inception_images
+from utils.utils import load_inception_data, prep_incep_img
 from models.inception.model import load_inception_inference
 
 FLAGS = tf.app.flags.FLAGS
@@ -64,8 +64,8 @@ def compute_imd(sess, real_img, gen_img, act_op, verbose=False):
         r_img_batch = []
         g_img_batch = []
         for j in range(start, end):
-            r_img_batch.append(preprocess_inception_images(real_img[j]))
-            g_img_batch.append(preprocess_inception_images(gen_img[j]))
+            r_img_batch.append(prep_incep_img(real_img[j]))
+            g_img_batch.append(prep_incep_img(gen_img[j]))
 
         pred_real = sess.run(act_op, {'inputs:0': r_img_batch})
         pred_gen = sess.run(act_op, {'inputs:0': g_img_batch})
