@@ -199,10 +199,10 @@ def initialize_uninitialized(sess, verbose=True):
         sess.run(tf.variables_initializer(not_initialized_vars))
 
 
-def resize_imgs(imgs, size):
+def resize_imgs(imgs, size, interp='bicubic'):
     res = []
     for img in imgs:
-        res.append(scipy.misc.imresize(img, size, 'bicubic'))
+        res.append(scipy.misc.imresize(img, size, interp))
     return res
 
 

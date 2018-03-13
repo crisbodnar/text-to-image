@@ -13,7 +13,7 @@ class PGGAN(object):
 
     # build model
     def __init__(self, batch_size, max_iters, model_path, read_model_path, data, sample_size, sample_path, log_dir,
-                 learn_rate, stage, t):
+                 learn_rate, stage, t, build_model=True):
 
         self.batch_size = batch_size
         self.max_iters = max_iters
@@ -33,32 +33,35 @@ class PGGAN(object):
         self.output_size = 4 * pow(2, stage - 1)
         self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
 
-        self.build_model()
-        self.define_losses()
-        self.define_summaries()
+        if build_model:
+            self.build_model()
+            self.define_losses()
+            self.define_summaries()
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
-        self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
+        self.x = tf.placeholder(tf.float32, [None, self.output_size, self.output_size, self.channel], name='x')
         self.x_mismatch = tf.placeholder(tf.float32,
-                                         [self.batch_size, self.output_size, self.output_size, self.channel],
+                                         [None, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
-        self.cond = tf.placeholder(tf.float32, [self.batch_size, self.embed_dim], name='cond')
-        self.z = tf.placeholder(tf.float32, [self.batch_size, self.sample_size], name='z')
-        self.epsilon = tf.placeholder(tf.float32, [self.batch_size, 1, 1, 1], name='eps')
+        self.cond = tf.placeholder(tf.float32, [None, self.embed_dim], name='cond')
+        self.z = tf.placeholder(tf.float32, [None, self.sample_size], name='z')
+        self.epsilon = tf.placeholder(tf.float32, [None, 1, 1, 1], name='eps')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.sample_size], name='z_sample')
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma \
             = self.generator(self.z, self.cond, stages=self.stage, t=self.trans)
-        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False, stages=self.stage, t=self.trans)
-        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage, t=self.trans)
+        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False, stages=self.stage,
+                                                           t=self.trans)
+        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage,
+                                                            t=self.trans)
         _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True, stages=self.stage, t=self.trans)
 
-        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage, t=self.trans,
-                                      is_train=False)
+        self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
+                                            t=self.trans)
         self.alpha_assign = tf.assign(self.alpha_tra,
                                       (tf.cast(tf.cast(self.iter, tf.float32) / self.max_iters, tf.float32)))
 
@@ -265,7 +268,7 @@ class PGGAN(object):
 
             return output_b1, output_b2
 
-    def generator(self, z_var, cond, stages, t, reuse=False, is_train=True):
+    def generator(self, z_var, cond, stages, t, reuse=False):
         alpha_trans = self.alpha_tra
         with tf.variable_scope('g_net', reuse=reuse):
 
