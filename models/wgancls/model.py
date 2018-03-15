@@ -125,10 +125,12 @@ class WGanCls(object):
         log_sigma = fc(embeddings, self.compressed_embed_dim, act=lrelu)
         return mean, log_sigma
 
-    def sample_normal_conditional(self, mean, log_sigma):
-        epsilon = tf.truncated_normal(tf.shape(mean))
-        stddev = tf.exp(log_sigma)
-        return mean + stddev * epsilon
+    def sample_normal_conditional(self, mean, log_sigma, cond_noise=True):
+        if cond_noise:
+            epsilon = tf.truncated_normal(tf.shape(mean))
+            stddev = tf.exp(log_sigma)
+            return mean + stddev * epsilon
+        return mean
 
     def kl_std_normal_loss(self, mean, log_sigma):
         loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
@@ -174,14 +176,14 @@ class WGanCls(object):
 
             return net_logits, mnet_logits
 
-    def generator(self, z, embed, reuse=False, is_training=True, df=NCHW):
+    def generator(self, z, embed, reuse=False, is_training=True, df=NCHW, cond_noise=True):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
         with tf.variable_scope("g_net", reuse=reuse):
             # Sample from the multivariate normal distribution of the embeddings
             mean, log_sigma = self.generate_conditionals(embed)
-            net_embed = self.sample_normal_conditional(mean, log_sigma)
+            net_embed = self.sample_normal_conditional(mean, log_sigma, cond_noise)
             # --------------------------------------------------------
 
             # Concatenate the sampled embedding with the z vector
