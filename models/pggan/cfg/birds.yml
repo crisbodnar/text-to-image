@@ -1,10 +1,10 @@
-CONFIG_NAME: 'PGGAN_decent'
-DATASET_NAME: 'flowers'
+CONFIG_NAME: 'PGGAN'
+DATASET_NAME: 'birds'
 
-DATASET_DIR: './data/flowers/'
-CHECKPOINT_DIR: './checkpoints/PGGAN/flowers'
+DATASET_DIR: './data/birds/'
+CHECKPOINT_DIR: './checkpoints/PGGAN/birds'
 LOGS_DIR: './logs/PGGAN_logs'
-SAMPLE_DIR: './samples/PGGAN/flowers'
+SAMPLE_DIR: './samples/PGGAN/birds'
 
 MODEL:
   Z_DIM: 512 # Dimension of the noise vector
@@ -39,10 +39,10 @@ TRAIN:
 
 EVAL:
   FLAG: False
-  INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
+  INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/birds/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64
   NUM_CLASSES: 20
   SIZE: 50000
-  ACT_STAT_PATH: ./data/fid/flowers/stats.npz
-  R_IMG_PATH: ./data/flowers/jpg
+  ACT_STAT_PATH: ./data/fid/birds/stats.npz
+  R_IMG_PATH: ./data/birds/jpg

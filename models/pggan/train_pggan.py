@@ -8,6 +8,8 @@ import os
 flags = tf.app.flags
 flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
@@ -15,7 +17,7 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(12, len(stage)):
+    for i in range(10, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
@@ -25,9 +27,9 @@ if __name__ == "__main__":
         scale_factor = 1
 
         if stage[i] <= 4 or t:
-            max_iters = 37500 * scale_factor
+            max_iters = 50000 * scale_factor
         else:
-            max_iters = 100000 * scale_factor
+            max_iters = 50000 * scale_factor
 
         sample_size = 512
         GAN_learn_rate = 1e-4

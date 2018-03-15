@@ -266,7 +266,7 @@ class TextDataset(object):
             list_filenames = pickle.load(f)
             print('list_filenames: ', len(list_filenames), list_filenames[0])
         with open(pickle_path + '/class_info.pickle', 'rb') as f:
-            class_id = pickle.load(f)
+            class_id = pickle.load(f, encoding='bytes')
             # Bring classes from range [1: 102] to [0: 101]
             class_id = np.array(class_id) - 1
 
