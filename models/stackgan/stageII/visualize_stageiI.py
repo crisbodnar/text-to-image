@@ -96,9 +96,9 @@ class StageIIVisualizer(object):
         samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
                                                         self.model.batch_size, self.dataset)
         batch = np.concatenate([samples, neighbours])
-        text = 'Generated images (first row) and their closest neighbours (second row)'
+        text = 'Generated images and their closest neighbours'
         save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
-                                                                              self.dataset.name))
+                                                                            self.dataset.name))
 
 
 
