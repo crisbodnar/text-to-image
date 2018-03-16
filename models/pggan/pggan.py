@@ -90,14 +90,14 @@ class PGGAN(object):
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
 
-        self.D_loss = self.D_realism_loss + 0.5 * self.D_matching_loss
+        self.D_loss = self.D_realism_loss +  self.D_matching_loss
 
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit - 0.5))
         self.G_match_loss = self.ce_loss(self.Dgm_logit, 1.0)
 
-        self.kl_coeff = 2
-        self.G_loss = self.G_gan_loss + 0.05 * self.G_match_loss + self.kl_coeff * self.G_kl_loss
+        self.kl_coeff = 1.0
+        self.G_loss = self.G_gan_loss + 0.5 * self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
         self.D_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
         self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
