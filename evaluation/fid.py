@@ -24,7 +24,7 @@ import tensorflow as tf
 from scipy import linalg
 import warnings
 from models.inception.model import load_inception_inference
-from utils.utils import load_inception_data, preprocess_inception_images
+from utils.utils import load_inception_data, prep_incep_img
 
 
 # Flags and constants
@@ -88,7 +88,7 @@ def get_activations(images, sess, batch_size, act_op, verbose=False):
         end = start + batch_size
         batch = []
         for j in range(start, end):
-            batch.append(preprocess_inception_images(images[j]))
+            batch.append(prep_incep_img(images[j]))
 
         pred = sess.run(act_op, {'inputs:0': batch})
         pred_arr[start:end] = pred

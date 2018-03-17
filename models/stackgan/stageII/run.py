@@ -4,6 +4,7 @@ from models.stackgan.stageI.model import ConditionalGan as ConditionalGanStageI
 from models.stackgan.stageII.eval_stageii import StageIIEval
 from models.stackgan.stageII.model import ConditionalGan
 from models.stackgan.stageII.trainer import ConditionalGanTrainer
+from models.stackgan.stageII.visualize_stageiI import StageIIVisualizer
 from utils.utils import pp, show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
@@ -68,7 +69,15 @@ def main(_):
             )
             stage_ii_trainer.train()
         else:
-            pass
+            stage_i = ConditionalGanStageI(cfg_stage_i, build_model=False)
+            stage_ii = ConditionalGan(stage_i, cfg, build_model=False)
+            stage_ii_eval = StageIIVisualizer(
+                sess=sess,
+                model=stage_ii,
+                dataset=dataset,
+                cfg=cfg,
+            )
+            stage_ii_eval.visualize()
 
 
 if __name__ == '__main__':

@@ -1,26 +1,25 @@
-from models.wgancls.model import WGanCls
+from models.stackgan.stageI.model import ConditionalGan
 from utils.utils import save_images, get_balanced_factorization, make_gif
 from utils.saver import load
 from utils.visualize import *
-from utils.ops import NHWC
 from preprocess.dataset import TextDataset
 import tensorflow as tf
 import numpy as np
 
 
-class WGanClsVisualizer(object):
-    def __init__(self, sess: tf.Session, model: WGanCls, dataset: TextDataset, config):
+class StageIVisualizer(object):
+    def __init__(self, sess: tf.Session, model: ConditionalGan, dataset: TextDataset, cfg):
         self.sess = sess
         self.model = model
         self.dataset = dataset
-        self.config = config
+        self.config = cfg
         self.samples_dir = self.config.SAMPLE_DIR
 
     def visualize(self):
         z = tf.placeholder(tf.float32, [self.model.batch_size, self.model.z_dim], name='z')
-        phi = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
-        gen, _, _ = self.model.generator(z, phi, is_training=False, df=NHWC)
-        gen_no_noise, _, _ = self.model.generator(z, phi, reuse=True, is_training=False, df=NHWC, cond_noise=False)
+        cond = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
+        gen, _, _ = self.model.generator(z, cond, is_training=False)
+        gen_no_noise, _, _ = self.model.generator(z, cond, is_training=False, reuse=True, cond_noise=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
         could_load, _ = load(saver, self.sess, self.config.CHECKPOINT_DIR)
@@ -28,10 +27,10 @@ class WGanClsVisualizer(object):
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-            raise RuntimeError('Could not load the checkpoints of the generator')
+            raise LookupError('Could not load any checkpoints')
 
         dataset_pos = None
-        for idx in range(3):
+        for idx in range(6):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
@@ -52,8 +51,7 @@ class WGanClsVisualizer(object):
             cond1, cond2 = cond[0], cond[1]
             cap1, cap2 = caps[0][0], caps[1][0]
 
-            samples = gen_cond_interp_img(self.sess, gen_no_noise, cond1, cond2, self.model.z_dim,
-                                          self.model.batch_size)
+            samples = gen_cond_interp_img(self.sess, gen_no_noise, cond1, cond2, self.model.z_dim, self.model.batch_size)
             save_interp_cap_batch(samples, cap1, cap2,
                                   '{}/{}_visual/cond_interp/cond_interp{}.png'.format(self.samples_dir,
                                                                                       self.dataset.name,
@@ -79,9 +77,13 @@ class WGanClsVisualizer(object):
         samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
                                                         self.model.batch_size, self.dataset)
         batch = np.concatenate([samples, neighbours])
-        text = 'Generated images and their closest neighbours'
+        text = 'Generated images (first row) and their closest neighbours (second row)'
         save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
-                                                                            self.dataset.name))
+                                                                              self.dataset.name))
+
+
+
+
 
 
 

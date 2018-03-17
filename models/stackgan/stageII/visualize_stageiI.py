@@ -1,34 +1,42 @@
-from models.wgancls.model import WGanCls
-from utils.utils import save_images, get_balanced_factorization, make_gif
+from models.stackgan.stageII.model import ConditionalGan
+from utils.utils import make_gif
 from utils.saver import load
 from utils.visualize import *
-from utils.ops import NHWC
 from preprocess.dataset import TextDataset
 import tensorflow as tf
 import numpy as np
 
 
-class WGanClsVisualizer(object):
-    def __init__(self, sess: tf.Session, model: WGanCls, dataset: TextDataset, config):
+class StageIIVisualizer(object):
+    def __init__(self, sess: tf.Session, model: ConditionalGan, dataset: TextDataset, cfg):
         self.sess = sess
         self.model = model
         self.dataset = dataset
-        self.config = config
+        self.config = cfg
         self.samples_dir = self.config.SAMPLE_DIR
 
     def visualize(self):
         z = tf.placeholder(tf.float32, [self.model.batch_size, self.model.z_dim], name='z')
-        phi = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
-        gen, _, _ = self.model.generator(z, phi, is_training=False, df=NHWC)
-        gen_no_noise, _, _ = self.model.generator(z, phi, reuse=True, is_training=False, df=NHWC, cond_noise=False)
+        cond = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
+        gen_stagei, _, _ = self.model.stagei.generator(z, cond, is_training=False)
+        gen, _, _ = self.model.generator(gen_stagei, cond, is_training=False)
+        gen_no_noise, _, _ = self.model.generator(gen_stagei, cond, is_training=False, reuse=True, cond_noise=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
+        could_load, _ = load(saver, self.sess, self.model.stagei.cfg.CHECKPOINT_DIR)
+        if could_load:
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            raise LookupError('Could not load any checkpoints for stage I')
+
+        saver = tf.train.Saver(tf.global_variables('stageII_g_net'))
         could_load, _ = load(saver, self.sess, self.config.CHECKPOINT_DIR)
         if could_load:
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-            raise RuntimeError('Could not load the checkpoints of the generator')
+            raise LookupError('Could not load any checkpoints for stage II')
 
         dataset_pos = None
         for idx in range(3):
@@ -52,8 +60,7 @@ class WGanClsVisualizer(object):
             cond1, cond2 = cond[0], cond[1]
             cap1, cap2 = caps[0][0], caps[1][0]
 
-            samples = gen_cond_interp_img(self.sess, gen_no_noise, cond1, cond2, self.model.z_dim,
-                                          self.model.batch_size)
+            samples = gen_cond_interp_img(self.sess, gen_no_noise, cond1, cond2, self.model.z_dim, self.model.batch_size)
             save_interp_cap_batch(samples, cap1, cap2,
                                   '{}/{}_visual/cond_interp/cond_interp{}.png'.format(self.samples_dir,
                                                                                       self.dataset.name,
@@ -72,6 +79,16 @@ class WGanClsVisualizer(object):
             save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(self.samples_dir,
                                                                                  self.dataset.name, idx))
 
+            # Generate Stage I and Stage II images
+            # ---------------------------------------------------------------------------------------------------------
+            _, cond, _, captions = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
+            cond = np.squeeze(cond, axis=0)
+            samples = gen_multiple_stage_img(self.sess, [gen_stagei, gen], cond, self.model.z_dim,
+                                             self.model.batch_size, size=128)
+            text = "Stage I and Stage II"
+            save_cap_batch(samples, text, '{}/{}_visual/stages/stage{}.png'.format(self.samples_dir,
+                                                                                   self.dataset.name, idx))
+
         # Generate some images and their closest neighbours
         # ---------------------------------------------------------------------------------------------------------
         _, conditions, _, _ = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
@@ -82,6 +99,11 @@ class WGanClsVisualizer(object):
         text = 'Generated images and their closest neighbours'
         save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
                                                                             self.dataset.name))
+
+
+
+
+
 
 
 

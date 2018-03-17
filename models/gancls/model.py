@@ -49,7 +49,7 @@ class GanCls(object):
         self.D_real_match, self.D_real_match_logits = self.discriminator(self.inputs, self.phi_inputs, reuse=True)
         self.D_real_mismatch, self.D_real_mismatch_logits = self.discriminator(self.wrong_inputs, self.phi_inputs,
                                                                                reuse=True)
-        self.sampler = self.generator(self.z_sample, self.phi_sample, is_training=False, reuse=True, sampler=True)
+        self.sampler = self.generator(self.z_sample, self.phi_sample, is_training=False, reuse=True)
 
     def discriminator(self, inputs, embed, is_training=True, reuse=False):
         s16 = self.output_size / 16
@@ -108,7 +108,7 @@ class GanCls(object):
 
             return tf.nn.sigmoid(net_logits), net_logits
 
-    def generator(self, z, embed, is_training=True, reuse=False, sampler=False):
+    def generator(self, z, embed, is_training=True, reuse=False):
         s = self.output_size
         s2, s4, s8, s16 = int(s / 2), int(s / 4), int(s / 8), int(s / 16)
 
@@ -123,12 +123,7 @@ class GanCls(object):
             net_h0 = batch_norm(net_h0, train=is_training, init=self.batch_norm_init,
                                 act=None)
             # --------------------------------------------------------
-
-            # Reshape based on the number of samples if this is the sampler (instead of the training batch_size).
-            if sampler:
-                net_h0 = tf.reshape(net_h0, [self.sample_num, 4, 4, -1])
-            else:
-                net_h0 = tf.reshape(net_h0, [self.batch_size, 4, 4, -1])
+            net_h0 = tf.reshape(net_h0, [-1, 4, 4, self.gf_dim * 8])
 
             # Residual layer
             net = tf.layers.conv2d(inputs=net_h0, filters=self.gf_dim * 2, kernel_size=(1, 1), strides=(1, 1),
