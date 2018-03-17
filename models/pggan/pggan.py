@@ -90,7 +90,7 @@ class PGGAN(object):
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
 
-        self.D_loss = self.D_realism_loss +  self.D_matching_loss
+        self.D_loss = self.D_realism_loss + self.D_matching_loss
 
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit - 0.5))
@@ -99,8 +99,8 @@ class PGGAN(object):
         self.kl_coeff = 1.0
         self.G_loss = self.G_gan_loss + 0.5 * self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies([self.alpha_assign] + update_ops):
@@ -230,7 +230,7 @@ class PGGAN(object):
                         print(e.args)
                         print(e)
 
-                if np.mod(idx, 2500) == 0 or idx == self.max_iters - 1:
+                if np.mod(idx, 2000) == 0 or idx == self.max_iters - 1:
                     save(self.saver, sess, self.gan_model_path, idx)
                 sys.stdout.flush()
 
