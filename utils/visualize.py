@@ -49,7 +49,7 @@ def interp_z(sess, gen_op, cond_sample, z1, z2, z='z:0', cond='cond:0', method='
     return sess.run(gen_op, feed_dict={z: z_batch, cond: cond_sample})
 
 
-def write_caption(img, caption, font_size, vert_pos):
+def write_caption(img, caption, font_size, vert_pos, split=50):
     """Writes a caption on the top row of the provided image. Blank space should be left on the top row."""
     img_txt = Image.fromarray(img)
     # get a font
@@ -63,7 +63,7 @@ def write_caption(img, caption, font_size, vert_pos):
     # get a drawing context
     d = ImageDraw.Draw(img_txt)
 
-    idx = caption.find(' ', 50)
+    idx = caption.find(' ', split)
     if idx == -1:
         # Write the caption on one row
         d.text((2, vert_pos), caption, font=fnt, fill=(255, 255, 255, 255))
@@ -76,13 +76,13 @@ def write_caption(img, caption, font_size, vert_pos):
     return np.array(img_txt)
 
 
-def save_cap_batch(img_batch, caption, path, rows=None):
+def save_cap_batch(img_batch, caption, path, rows=None, split=50):
     """Creates a super image of generated images with the caption of the images written on a top blank row."""
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=False, rows=rows)
 
-    super_img = Image.fromarray(write_caption(super_img, caption, font_size, 10))
+    super_img = Image.fromarray(write_caption(super_img, caption, font_size, 10, split=split))
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
     misc.imsave(path, super_img)
@@ -105,7 +105,7 @@ def prepare_img_for_captioning(img_batch, bottom, rows=None):
     img_batch = denormalize_images(img_batch)
     super_img = top_row
     for rown in range(rows):
-        if batch_size >= rown * n:
+        if batch_size > rown * n:
             row = []
             for i in range(rown * n, (rown + 1) * n):
                 row.append(img_batch[i])
@@ -209,6 +209,7 @@ def gen_closest_neighbour_img(sess, gen_op, cond, z_dim, batch_size, dataset):
         'cond:0': cond,
     })
     samples = samples[:8]
+    samples = np.clip(samples, -1., 1.)
 
     neighbours = closest_images_of_batch(samples, dataset)
     return samples, neighbours
@@ -235,11 +236,18 @@ def gen_multiple_stage_img(sess, gen_ops, cond, z_dim, batch_size, size=128):
 
 def gen_pggan_sample(samples, size=128, interp='bicubic'):
     """Same image at multiple PGGAN scales"""
-    samples = (samples + 1.0) * 127.5
-    samples = resize_imgs(samples, (size, size), interp)
-    samples = np.array(samples) / 127.5 - 1.0
+    stages = len(samples)
+    batch_size = len(samples[0])
+    new_samples = np.empty(shape=(stages, batch_size, size, size, 3))
+    for sidx, stage in enumerate(samples):
+        for sam_idx, sample in enumerate(stage):
+            sample = np.array(sample)
+            sample = (sample + 1.0) * 127.5
+            sample = scipy.misc.imresize(sample, size=(size, size), interp='nearest')
+            sample = np.array(sample) / 127.5 - 1.0
+            new_samples[sidx, sam_idx, :, :, :] = sample
 
-    return samples
+    return new_samples
 
 
 

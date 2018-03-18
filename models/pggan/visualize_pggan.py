@@ -19,6 +19,7 @@ if __name__ == "__main__":
 
     cfg = config_from_yaml(FLAGS.cfg)
 
+    batch_size = 16
     datadir = cfg.DATASET_DIR
     dataset = TextDataset(datadir, 64)
 
@@ -28,14 +29,13 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    z_sample = np.random.standard_normal((1, 512))
+    z_sample = np.random.standard_normal((batch_size, 512))
 
     dataset_pos = np.random.randint(0, dataset.test.num_examples)
-    _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
-    caption = captions[0][0]
+    _, conditions, _, captions = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
+    conditions = np.squeeze(conditions, 0)
 
     for i in range(0, len(stage)):
-        batch_size = 1
         scale_factor = 1
 
         sample_size = 512
@@ -65,16 +65,23 @@ if __name__ == "__main__":
             if not could_load:
                 raise RuntimeError('Could not load stage %d' % stage[i])
 
-            sample = sess.run(gen_op, feed_dict={'z:0': z_sample, 'cond:0': conditions})
-            sample = sample[0]
-            all_samples.append(sample)
+            samples = sess.run(gen_op, feed_dict={'z:0': z_sample, 'cond:0': conditions})
+            samples = np.clip(samples, -1., 1.)
+            all_samples.append(samples)
 
         tf.reset_default_graph()
 
-    all_samples = np.array(all_samples)
     all_samples = gen_pggan_sample(all_samples, 128, interp='nearest')
-    save_cap_batch(all_samples, caption, '{}/{}_visual/stages/stage{}.png'.format('samples/PGGAN',
-                                                                                  'flowers', 0))
+
+    for idx in range(batch_size):
+        caption = captions[idx][0]
+        img_for_this_desc = []
+        for stg in range(stage[-1]):
+            img_for_this_desc.append(all_samples[stg, idx, :, :, :])
+
+        img_for_this_desc = np.array(img_for_this_desc)
+        save_cap_batch(img_for_this_desc, caption, '{}/{}_visual/stages/stages{}.png'.format('samples/PGGAN/flowers',
+                                                                                             'flowers', idx), split=35)
 
 
 

@@ -272,7 +272,7 @@ class PGGAN(object):
 
             return output_b1, output_b2
 
-    def generator(self, z_var, cond, stages, t, reuse=False):
+    def generator(self, z_var, cond, stages, t, reuse=False, cond_noise=True):
         alpha_trans = self.alpha_tra
         with tf.variable_scope('g_net', reuse=reuse):
 
@@ -281,7 +281,7 @@ class PGGAN(object):
                 de = conv2d_transpose(de, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=tf.nn.relu, padding='VALID')
 
                 mean, log_sigma = self.generate_conditionals(cond)
-                cond = self.sample_normal_conditional(mean, log_sigma)
+                cond = self.sample_normal_conditional(mean, log_sigma, cond_noise)
 
                 de = self.concat_cond(de, cond)
                 de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
@@ -338,10 +338,12 @@ class PGGAN(object):
         log_sigma = fc(embeddings, 128, act=lrelu_act())
         return mean, log_sigma
 
-    def sample_normal_conditional(self, mean, log_sigma):
-        epsilon = tf.truncated_normal(tf.shape(mean))
-        stddev = tf.exp(log_sigma)
-        return mean + stddev * epsilon
+    def sample_normal_conditional(self, mean, log_sigma, cond_noise=True):
+        if cond_noise:
+            epsilon = tf.truncated_normal(tf.shape(mean))
+            stddev = tf.exp(log_sigma)
+            return mean + stddev * epsilon
+        return mean
 
     def kl_std_normal_loss(self, mean, log_sigma):
         loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))

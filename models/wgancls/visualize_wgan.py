@@ -19,8 +19,8 @@ class WGanClsVisualizer(object):
     def visualize(self):
         z = tf.placeholder(tf.float32, [self.model.batch_size, self.model.z_dim], name='z')
         phi = tf.placeholder(tf.float32, [self.model.batch_size] + [self.model.embed_dim], name='cond')
-        gen, _, _ = self.model.generator(z, phi, is_training=False, df=NHWC)
-        gen_no_noise, _, _ = self.model.generator(z, phi, reuse=True, is_training=False, df=NHWC, cond_noise=False)
+        gen, _, _ = self.model.generator(z, phi, is_training=False)
+        gen_no_noise, _, _ = self.model.generator(z, phi, reuse=True, is_training=False, cond_noise=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
         could_load, _ = load(saver, self.sess, self.config.CHECKPOINT_DIR)
@@ -31,7 +31,7 @@ class WGanClsVisualizer(object):
             raise RuntimeError('Could not load the checkpoints of the generator')
 
         dataset_pos = None
-        for idx in range(3):
+        for idx in range(10):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
@@ -46,7 +46,6 @@ class WGanClsVisualizer(object):
                                                                                            idx))
             # Interpolation in embedding space:
             # ---------------------------------------------------------------------------------------------------------
-
             _, cond, _, caps = self.dataset.test.next_batch_test(2, dataset_pos, 1)
             cond = np.squeeze(cond, axis=0)
             cond1, cond2 = cond[0], cond[1]
