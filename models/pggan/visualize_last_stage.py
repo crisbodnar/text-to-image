@@ -58,54 +58,54 @@ if __name__ == "__main__":
         if not could_load:
             raise RuntimeError('Could not load stage %d' % stage)
 
-        # for idx in range(10):
-        #     dataset_pos = np.random.randint(0, dataset.test.num_examples)
-        #     # Interpolation in z space:
-        #     # ---------------------------------------------------------------------------------------------------------
-        #     _, cond, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
-        #     cond = np.squeeze(cond, axis=0)
-        #     caption = captions[0][0]
-        #
-        #     samples = gen_noise_interp_img(sess, gen_no_noise, cond, sample_size, batch_size)
-        #     samples = np.clip(samples, -1., 1.)
-        #     save_cap_batch(samples, caption, '{}/{}_visual/z_interp/z_interp{}.png'.format(samples_dir,
-        #                                                                                    dataset.name,
-        #                                                                                    idx))
-        #     # Interpolation in embedding space:
-        #     # ---------------------------------------------------------------------------------------------------------
-        #
-        #     _, cond, _, caps = dataset.test.next_batch_test(2, dataset_pos, 1)
-        #     cond = np.squeeze(cond, axis=0)
-        #     cond1, cond2 = cond[0], cond[1]
-        #     cap1, cap2 = caps[0][0], caps[1][0]
-        #
-        #     samples = gen_cond_interp_img(sess, gen_no_noise, cond1, cond2, sample_size, batch_size)
-        #     samples = np.clip(samples, -1., 1.)
-        #     save_interp_cap_batch(samples, cap1, cap2,
-        #                           '{}/{}_visual/cond_interp/cond_interp{}.png'.format(samples_dir, dataset.name, idx))
-        #
-        #     # Generate captioned image
-        #     # ---------------------------------------------------------------------------------------------------------
-        #     _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
-        #     conditions = np.squeeze(conditions, axis=0)
-        #     caption = captions[0][0]
-        #     samples = gen_captioned_img(sess, gen_op, conditions, sample_size, batch_size)
-        #     samples = np.clip(samples, -1., 1.)
-        #
-        #     save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(samples_dir,
-        #                                                                          dataset.name, idx))
+        for idx in range(10):
+            dataset_pos = np.random.randint(0, dataset.test.num_examples)
+            # Interpolation in z space:
+            # ---------------------------------------------------------------------------------------------------------
+            _, cond, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
+            cond = np.squeeze(cond, axis=0)
+            caption = captions[0][0]
 
-        # Generate some images and their closest neighbours
-        # ---------------------------------------------------------------------------------------------------------
-        dataset_pos = np.random.randint(0, dataset.test.num_examples)
-        _, conditions, _, _ = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
-        conditions = np.squeeze(conditions)
-        samples, neighbours = gen_closest_neighbour_img(sess, gen_op, conditions, sample_size,
-                                                        batch_size, dataset)
-        batch = np.concatenate([samples, neighbours])
-        text = 'Generated images and their closest neighbours'
-        save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(samples_dir, dataset.name))
+            samples = gen_noise_interp_img(sess, gen_no_noise, cond, sample_size, batch_size)
+            samples = np.clip(samples, -1., 1.)
+            save_cap_batch(samples, caption, '{}/{}_visual/z_interp/z_interp{}.png'.format(samples_dir,
+                                                                                           dataset.name,
+                                                                                           idx))
+            # Interpolation in embedding space:
+            # ---------------------------------------------------------------------------------------------------------
 
+            _, cond, _, caps = dataset.test.next_batch_test(2, dataset_pos, 1)
+            cond = np.squeeze(cond, axis=0)
+            cond1, cond2 = cond[0], cond[1]
+            cap1, cap2 = caps[0][0], caps[1][0]
+
+            samples = gen_cond_interp_img(sess, gen_no_noise, cond1, cond2, sample_size, batch_size)
+            samples = np.clip(samples, -1., 1.)
+            save_interp_cap_batch(samples, cap1, cap2,
+                                  '{}/{}_visual/cond_interp/cond_interp{}.png'.format(samples_dir, dataset.name, idx))
+
+            # Generate captioned image
+            # ---------------------------------------------------------------------------------------------------------
+            _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
+            conditions = np.squeeze(conditions, axis=0)
+            caption = captions[0][0]
+            samples = gen_captioned_img(sess, gen_op, conditions, sample_size, batch_size)
+            samples = np.clip(samples, -1., 1.)
+
+            save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(samples_dir,
+                                                                                 dataset.name, idx))
+
+        # # Generate some images and their closest neighbours
+        # # ---------------------------------------------------------------------------------------------------------
+        # dataset_pos = np.random.randint(0, dataset.test.num_examples)
+        # _, conditions, _, _ = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
+        # conditions = np.squeeze(conditions)
+        # samples, neighbours = gen_closest_neighbour_img(sess, gen_op, conditions, sample_size,
+        #                                                 batch_size, dataset)
+        # batch = np.concatenate([samples, neighbours])
+        # text = 'Generated images and their closest neighbours'
+        # save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(samples_dir, dataset.name))
+        #
 
 
 

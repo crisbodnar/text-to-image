@@ -56,7 +56,7 @@ def main(_):
             )
             stage_ii_eval.evaluate_inception()
 
-        if cfg.TRAIN.FLAG:
+        elif cfg.TRAIN.FLAG:
             stage_i = ConditionalGanStageI(cfg_stage_i, build_model=False)
             stage_ii = ConditionalGan(stage_i, cfg)
             show_all_variables()
