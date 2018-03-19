@@ -80,12 +80,12 @@ class PGGAN(object):
                                                                       labels=tf.fill(logits.get_shape(), label_val)))
 
     def define_losses(self):
-        self.D_real_match_loss = self.ce_loss(self.Dxma_logit, 1.0)
-        self.D_real_mismatch_loss = self.ce_loss(self.Dxmi_logit, 0.0)
-        self.D_g_match_loss = self.ce_loss(self.Dgm_logit, 0.0)
+        self.D_real_match_loss = tf.reduce_mean(tf.square(self.Dxma_logit - 1.0))
+        self.D_real_mismatch_loss = tf.reduce_mean(tf.square(self.Dxmi_logit + 1))
+        self.D_g_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit + 1))
 
         self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 1))
-        self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit))
+        self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit + 1))
 
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
@@ -93,17 +93,16 @@ class PGGAN(object):
         self.D_loss = self.D_realism_loss + self.D_matching_loss
 
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
-        self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit - 0.5))
-        self.G_match_loss = self.ce_loss(self.Dgm_logit, 1.0)
+        self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
+        self.G_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit))
 
-        self.kl_coeff = 1.0
-        self.G_loss = self.G_gan_loss + 0.5 * self.G_match_loss + self.kl_coeff * self.G_kl_loss
+        self.kl_coeff = 2.0
+        self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.9)
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies([self.alpha_assign] + update_ops):
+        with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
             self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
@@ -201,8 +200,6 @@ class PGGAN(object):
                 }
 
                 _, err_d = sess.run([self.D_optim, self.D_loss], feed_dict=feed_dict)
-
-                # Use TTUR update rule (https://arxiv.org/abs/1706.08500)
                 _, err_g = sess.run([self.G_optim, self.G_loss], feed_dict=feed_dict)
 
                 if np.mod(idx, 20) == 0:
@@ -283,8 +280,8 @@ class PGGAN(object):
                 mean, log_sigma = self.generate_conditionals(cond)
                 cond = self.sample_normal_conditional(mean, log_sigma, cond_noise)
 
-                de = self.concat_cond(de, cond)
-                de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                de_conc = self.concat_cond(de, cond)
+                de = conv2d(de_conc, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 de = layer_norm(de, act=tf.nn.relu)
 
             de_iden = None
@@ -325,9 +322,6 @@ class PGGAN(object):
     def get_nf(self, stage):
         return min(1024 // (2 ** (stage * 1)), 512)
 
-    def get_dnf(self, stage):
-        return min(1024 // (2 ** (stage + 1)), 256)
-
     def from_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
             return conv2d(x, f=self.get_nf(stage), ks=(1, 1), s=(1, 1), act=lrelu_act())
@@ -352,6 +346,7 @@ class PGGAN(object):
 
     def to_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
+            x = conv2d(x, f=6, ks=(2, 2), s=(1, 1), act=lrelu_act())
             return conv2d(x, f=3, ks=(1, 1), s=(1, 1))
 
     def get_adam_vars(self, opt, vars_to_train):
