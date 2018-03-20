@@ -90,8 +90,6 @@ class Dataset(object):
                 cropped_image = images[i][w1: w1 + self._imsize, h1: h1 + self._imsize, :]
                 if random.random() > 0.5:
                     cropped_image = np.fliplr(cropped_image)
-                if self._imsize < 64 and random.random() > 0.5:
-                    cropped_image = np.flipud(cropped_image)
                 transformed_images[i] = cropped_image
             return transformed_images
         else:
