@@ -42,13 +42,13 @@ class PGGAN(object):
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
-        self.x = tf.placeholder(tf.float32, [None, self.output_size, self.output_size, self.channel], name='x')
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
         self.x_mismatch = tf.placeholder(tf.float32,
-                                         [None, self.output_size, self.output_size, self.channel],
+                                         [self.batch_size, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
-        self.cond = tf.placeholder(tf.float32, [None, self.embed_dim], name='cond')
-        self.z = tf.placeholder(tf.float32, [None, self.sample_size], name='z')
-        self.epsilon = tf.placeholder(tf.float32, [None, 1, 1, 1], name='eps')
+        self.cond = tf.placeholder(tf.float32, [self.batch_size, self.embed_dim], name='cond')
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.sample_size], name='z')
+        self.epsilon = tf.placeholder(tf.float32, [self.batch_size, 1, 1, 1], name='eps')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.sample_size], name='z_sample')
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
@@ -83,21 +83,21 @@ class PGGAN(object):
                                                                       labels=tf.fill(logits.get_shape(), label_val)))
 
     def define_losses(self):
-        self.D_real_match_loss = tf.reduce_mean(tf.square(self.Dxma_logit - 1.0))
-        self.D_real_mismatch_loss = tf.reduce_mean(tf.square(self.Dxmi_logit + 1))
-        self.D_g_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit + 1))
+        self.D_real_match_loss = self.ce_loss(self.Dxma_logit, 1.0)
+        self.D_real_mismatch_loss = self.ce_loss(self.Dxmi_logit, 0.0)
+        self.D_g_match_loss = self.ce_loss(self.Dgm_logit, 0.0)
 
-        self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 1))
+        self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 0.9))
         self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit + 1))
 
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
-        self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
+        self.D_matching_loss = self.D_real_match_loss + 0.5 * (self.D_real_mismatch_loss + self.D_g_match_loss)
 
         self.D_loss = self.D_realism_loss + self.D_matching_loss
 
         self.G_kl_loss_lr = self.kl_std_normal_loss(self.mean_lr, self.log_sigma_lr)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
-        self.G_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit))
+        self.G_match_loss = self.ce_loss(self.Dgm_logit, 1.0)
 
         self.kl_coeff = 2.0
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss_lr
@@ -105,8 +105,8 @@ class PGGAN(object):
             self.G_kl_loss_hr = self.kl_std_normal_loss(self.mean_hr, self.log_sigma_hr)
             self.G_loss += self.kl_coeff * self.G_kl_loss_hr
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.9)
 
         with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)

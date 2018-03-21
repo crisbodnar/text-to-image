@@ -6,10 +6,10 @@ from utils.config import config_from_yaml
 import os
 
 flags = tf.app.flags
-# flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
-#                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
-flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
-                    'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
+flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
+                    'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(8, len(stage)):
+    for i in range(0, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
