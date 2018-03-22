@@ -43,6 +43,7 @@ class PGGAN(object):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
+        self.xp = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='xp')
         self.x_mismatch = tf.placeholder(tf.float32,
                                          [self.batch_size, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
@@ -62,6 +63,12 @@ class PGGAN(object):
         self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage,
                                                             t=self.trans)
         _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True, stages=self.stage, t=self.trans)
+
+        interp = tf.random_uniform(shape=[self.batch_size, 1, 1, 1]
+                                   )
+        self.x_interp = self.x + interp * (self.xp - self.x)
+        self.Dx_interp, self.Dxm_interp = self.discriminator(self.x_interp, self.cond, reuse=True, stages=self.stage,
+                                                             t=self.trans)
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
                                             t=self.trans)
@@ -83,21 +90,24 @@ class PGGAN(object):
                                                                       labels=tf.fill(logits.get_shape(), label_val)))
 
     def define_losses(self):
-        self.D_real_match_loss = self.ce_loss(self.Dxma_logit, 1.0)
-        self.D_real_mismatch_loss = self.ce_loss(self.Dxmi_logit, 0.0)
-        self.D_g_match_loss = self.ce_loss(self.Dgm_logit, 0.0)
+        self.D_real_match_loss = tf.reduce_mean(tf.square(self.Dxma_logit - 1))
+        self.D_real_mismatch_loss = tf.reduce_mean(tf.square(self.Dxmi_logit + 1))
+        self.D_g_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit + 1))
 
-        self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 0.9))
+        self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 1))
         self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit + 1))
 
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
-        self.D_matching_loss = self.D_real_match_loss + 0.5 * (self.D_real_mismatch_loss + self.D_g_match_loss)
+        self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
+        self.gp1 = self.get_gradient_penalty(self.x_interp, self.Dx_interp)
+        self.gp2 = self.get_gradient_penalty(self.x_interp, self.Dxm_interp)
 
         self.D_loss = self.D_realism_loss + self.D_matching_loss
+        self.D_loss += 10.0 * (self.gp1 + self.gp2)
 
         self.G_kl_loss_lr = self.kl_std_normal_loss(self.mean_lr, self.log_sigma_lr)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
-        self.G_match_loss = self.ce_loss(self.Dgm_logit, 1.0)
+        self.G_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit))
 
         self.kl_coeff = 2.0
         self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss_lr
@@ -105,7 +115,7 @@ class PGGAN(object):
             self.G_kl_loss_hr = self.kl_std_normal_loss(self.mean_hr, self.log_sigma_hr)
             self.G_loss += self.kl_coeff * self.G_kl_loss_hr
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.9)
         self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.9)
 
         with tf.control_dependencies([self.alpha_assign]):
@@ -146,14 +156,17 @@ class PGGAN(object):
             tf.summary.scalar('D_loss_real', self.D_loss_real),
             tf.summary.scalar('D_real_match_loss', self.D_real_match_loss),
             tf.summary.scalar('D_real_mismatch_loss', self.D_real_mismatch_loss),
-            # tf.summary.scalar('D_realism_loss', self.D_realism_loss),
-            # tf.summary.scalar('D_matching_loss', self.D_matching_loss),
+            tf.summary.scalar('gp1', self.gp1),
+            tf.summary.scalar('gp2', self.gp2),
             tf.summary.scalar('D_g_match_loss', self.D_g_match_loss),
             tf.summary.scalar('D_loss', self.D_loss)
         ]
         if self.stage >= 6:
             summaries.append(tf.summary.scalar('G_kl_loss_hr', self.G_kl_loss_hr))
         self.summary_op = tf.summary.merge(summaries)
+
+    def get_perturbed_batch(self, minibatch):
+        return minibatch + 0.5 * minibatch.std() * np.random.random(minibatch.shape)
 
     # do train
     def train(self):
@@ -199,6 +212,7 @@ class PGGAN(object):
 
                 feed_dict = {
                     self.x: images,
+                    self.xp: self.get_perturbed_batch(images),
                     self.x_mismatch: wrong_images,
                     self.cond: embed,
                     self.z: batch_z,
