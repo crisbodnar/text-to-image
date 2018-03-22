@@ -35,8 +35,9 @@ if __name__ == "__main__":
     _, conditions, _, captions = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
     conditions = np.squeeze(conditions, 0)
 
+    print('Generating images for all stages...', flush=True)
     for i in range(0, len(stage)):
-        scale_factor = 1
+        print('Generating stage %d' % (i + 1), flush=True)
 
         sample_size = 512
         GAN_learn_rate = 1e-4
