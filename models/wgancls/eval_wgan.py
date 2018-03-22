@@ -26,7 +26,6 @@ class WGanClsEval(object):
         pool3 = layers['PreLogits']
         act_op = tf.reshape(pool3, shape=[incep_batch_size, -1])
 
-
         if not os.path.exists(self.cfg.EVAL.ACT_STAT_PATH):
             print('Computing activation statistics for real x')
             fid.compute_and_save_activation_statistics(self.cfg.EVAL.R_IMG_PATH, self.sess, incep_batch_size, act_op,

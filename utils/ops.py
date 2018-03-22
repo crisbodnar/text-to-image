@@ -69,12 +69,6 @@ def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=N
                                       kernel_initializer=init, name=name, data_format=df_to_channel(df))
 
 
-def kl_std_normal_loss(mean, log_sigma):
-    loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mean))
-    loss = tf.reduce_mean(loss)
-    return loss
-
-
 def layer_norm(x, act=None, scope=None, df=NHWC):
     if df == NHWC:
         begin_params_axis = -1
@@ -95,7 +89,7 @@ def lrelu_act(alpha=0.2):
     return lambda x: tf.nn.leaky_relu(x, alpha)
 
 
-def pix_norm(x, eps=1e-8, act=None):
+def pixel_norm(x, eps=1e-8, act=None):
     if act is not None:
         x = act(x)
     return x / tf.sqrt(tf.reduce_mean(x**2, axis=3, keep_dims=True) + eps)
@@ -121,24 +115,13 @@ def downscale(x, s=2):
 
 
 def get_conv_shape(tensor):
-    shape = int_shape(tensor)
+    shape = get_ints_from_shape(tensor)
     return shape
 
 
-def int_shape(tensor):
+def get_ints_from_shape(tensor):
     shape = tensor.get_shape().as_list()
-    return [num if num is not None else -1 for num in shape]
-
-
-def minibatch_state_concat(input, averaging='all'):
-    adjusted_std = lambda x, **kwargs: tf.sqrt(tf.reduce_mean((x - tf.reduce_mean(x, **kwargs)) **2, **kwargs) + 1e-8)
-    vals = adjusted_std(input, axis=0, keep_dims=True)
-    if averaging == 'all':
-        vals = tf.reduce_mean(vals, keep_dims=True)
-    else:
-        print ("nothing")
-    vals = tf.tile(vals, multiples=[tf.shape(input)[0], 4, 4, 1])
-    return tf.concat([input, vals], axis=3)
+    return [number if number is not None else -1 for number in shape]
 
 
 def to_nchw(x):

@@ -44,9 +44,9 @@ if __name__ == "__main__":
     run_config = tf.ConfigProto()
     run_config.gpu_options.allow_growth = True
 
-    pggan = PGGAN(batch_size=batch_size, max_iters=-1, model_path='', read_model_path=pggan_checkpoint_dir_read,
-                  data=dataset, sample_size=sample_size, sample_path='', log_dir='', learn_rate=GAN_learn_rate,
-                  stage=stage, t=False, build_model=False)
+    pggan = PGGAN(batch_size=batch_size, steps=-1, check_dir_write='', check_dir_read=pggan_checkpoint_dir_read,
+                  dataset=dataset, z_dim=sample_size, sample_path='', log_dir='', learn_rate=GAN_learn_rate,
+                  stage=stage, trans=False, build_model=False)
 
     cond = tf.placeholder(tf.float32, [None, 1024], name='cond')
     z = tf.placeholder(tf.float32, [None, sample_size], name='z')

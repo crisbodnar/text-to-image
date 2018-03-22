@@ -12,26 +12,25 @@ import sys
 class PGGAN(object):
 
     # build model
-    def __init__(self, batch_size, max_iters, model_path, read_model_path, data, sample_size, sample_path, log_dir,
-                 learn_rate, stage, t, build_model=True):
+    def __init__(self, batch_size, steps, check_dir_write, check_dir_read, dataset, sample_path, log_dir, stage, trans,
+                 build_model=True):
 
         self.batch_size = batch_size
-        self.max_iters = max_iters
-        self.gan_model_path = model_path
-        self.read_model_path = read_model_path
-        self.dataset = data
-        self.sample_size = sample_size
+        self.steps = steps
+        self.check_dir_write = check_dir_write
+        self.check_dir_read = check_dir_read
+        self.dataset = dataset
         self.sample_path = sample_path
         self.log_dir = log_dir
-        self.learning_rate = learn_rate
         self.stage = stage
-        self.trans = t
-        self.log_vars = []
+        self.trans = trans
+
+        self.z_dim = 512
+        self.embed_dim = 1024
+        self.out_size = 4 * pow(2, stage - 1)
         self.channel = 3
         self.sample_num = 64
-        self.embed_dim = 1024
-        self.output_size = 4 * pow(2, stage - 1)
-        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
+        self.alpha = tf.Variable(initial_value=0.0, trainable=False, name='alpha')
 
         if build_model:
             self.build_model()
@@ -41,15 +40,15 @@ class PGGAN(object):
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
-        self.x = tf.placeholder(tf.float32, [None, self.output_size, self.output_size, self.channel], name='x')
+        self.x = tf.placeholder(tf.float32, [None, self.out_size, self.out_size, self.channel], name='x')
         self.x_mismatch = tf.placeholder(tf.float32,
-                                         [None, self.output_size, self.output_size, self.channel],
+                                         [None, self.out_size, self.out_size, self.channel],
                                          name='x_mismatch')
         self.cond = tf.placeholder(tf.float32, [None, self.embed_dim], name='cond')
-        self.z = tf.placeholder(tf.float32, [None, self.sample_size], name='z')
+        self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')
         self.epsilon = tf.placeholder(tf.float32, [None, 1, 1, 1], name='eps')
 
-        self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.sample_size], name='z_sample')
+        self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma \
@@ -62,8 +61,8 @@ class PGGAN(object):
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
                                             t=self.trans)
-        self.alpha_assign = tf.assign(self.alpha_tra,
-                                      (tf.cast(tf.cast(self.iter, tf.float32) / self.max_iters, tf.float32)))
+        self.alpha_assign = tf.assign(self.alpha,
+                                      (tf.cast(tf.cast(self.iter, tf.float32) / self.steps, tf.float32)))
 
         self.d_vars = tf.trainable_variables('d_net')
         self.g_vars = tf.trainable_variables('g_net')
@@ -134,7 +133,7 @@ class PGGAN(object):
             tf.summary.scalar('Gm_loss', self.G_match_loss),
             tf.summary.scalar('G_gan_loss', self.G_gan_loss),
             tf.summary.scalar('G_loss', self.G_loss),
-            tf.summary.scalar('alpha', self.alpha_tra),
+            tf.summary.scalar('alpha', self.alpha),
             tf.summary.scalar('kl_loss', self.G_kl_loss),
 
             tf.summary.scalar('D_syntehtic_loss', self.D_loss_fake),
@@ -158,11 +157,11 @@ class PGGAN(object):
 
             if self.stage != 1:
                 if self.trans:
-                    could_load = load(self.restore, sess, self.read_model_path)
+                    could_load = load(self.restore, sess, self.check_dir_read)
                     if not could_load:
                         raise RuntimeError('Could not load previous stage during transition')
                 else:
-                    could_load = load(self.saver, sess, self.read_model_path)
+                    could_load = load(self.saver, sess, self.check_dir_read)
                     if not could_load:
                         raise RuntimeError('Could not load current stage')
 
@@ -170,7 +169,7 @@ class PGGAN(object):
             vars_to_init = initialize_uninitialized(sess)
             sess.run(tf.variables_initializer(vars_to_init))
 
-            sample_z = np.random.normal(0, 1, (self.sample_num, self.sample_size))
+            sample_z = np.random.normal(0, 1, (self.sample_num, self.z_dim))
             _, sample_cond, _, captions = self.dataset.test.next_batch_test(self.sample_num, 0, 1)
             sample_cond = np.squeeze(sample_cond, axis=0)
             print('Conditionals sampler shape: {}'.format(sample_cond.shape))
@@ -179,14 +178,14 @@ class PGGAN(object):
             start_time = time.time()
 
             start_point = 0
-            for idx in range(start_point + 1, self.max_iters):
+            for idx in range(start_point + 1, self.steps):
                 epoch_size = self.dataset.train.num_examples // self.batch_size
                 epoch = idx // epoch_size
 
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.batch_size, 4,
                                                                                   wrong_img=True,
                                                                                   embeddings=True)
-                batch_z = np.random.normal(0, 1, (self.batch_size, self.sample_size))
+                batch_z = np.random.normal(0, 1, (self.batch_size, self.z_dim))
                 eps = np.random.uniform(0., 1., size=(self.batch_size, 1, 1, 1))
 
                 feed_dict = {
@@ -201,8 +200,6 @@ class PGGAN(object):
                 }
 
                 _, err_d = sess.run([self.D_optim, self.D_loss], feed_dict=feed_dict)
-
-                # Use TTUR update rule (https://arxiv.org/abs/1706.08500)
                 _, err_g = sess.run([self.G_optim, self.G_loss], feed_dict=feed_dict)
 
                 if np.mod(idx, 20) == 0:
@@ -218,7 +215,7 @@ class PGGAN(object):
                                                     self.z_sample: sample_z,
                                                     self.cond_sample: sample_cond})
                         samples = np.clip(samples, -1., 1.)
-                        if self.output_size > 256:
+                        if self.out_size > 256:
                             samples = samples[:4]
 
                         save_images(samples, get_balanced_factorization(samples.shape[0]),
@@ -230,41 +227,41 @@ class PGGAN(object):
                         print(e.args)
                         print(e)
 
-                if np.mod(idx, 2000) == 0 or idx == self.max_iters - 1:
-                    save(self.saver, sess, self.gan_model_path, idx)
+                if np.mod(idx, 2000) == 0 or idx == self.steps - 1:
+                    save(self.saver, sess, self.check_dir_write, idx)
                 sys.stdout.flush()
 
         tf.reset_default_graph()
 
-    def discriminator(self, inp, cond, stages, t, reuse=False, is_train=True):
-        alpha_trans = self.alpha_tra
+    def discriminator(self, inp, cond, stages, t, reuse=False):
+        alpha_trans = self.alpha
         with tf.variable_scope("d_net", reuse=reuse):
-            conv_iden = None
+            x_iden = None
             if t:
-                conv_iden = pool(inp, 2)
-                conv_iden = self.from_rgb(conv_iden, stages - 2)
+                x_iden = pool(inp, 2)
+                x_iden = self.from_rgb(x_iden, stages - 2)
 
-            conv = self.from_rgb(inp, stages - 1)
+            x = self.from_rgb(inp, stages - 1)
 
             for i in range(stages - 1, 0, -1):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
-                    conv = conv2d(conv, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    conv = layer_norm(conv, act=lrelu_act())
-                    conv = conv2d(conv, f=self.get_nf(i-1), ks=(3, 3), s=(1, 1))
-                    conv = layer_norm(conv, act=lrelu_act())
-                    conv = pool(conv, 2)
+                    x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
+                    x = layer_norm(x, act=lrelu_act())
+                    x = conv2d(x, f=self.get_nf(i-1), ks=(3, 3), s=(1, 1))
+                    x = layer_norm(x, act=lrelu_act())
+                    x = pool(x, 2)
                 if i == stages - 1 and t:
-                    conv = tf.multiply(alpha_trans, conv) + tf.multiply(tf.subtract(1., alpha_trans), conv_iden)
+                    x = tf.multiply(alpha_trans, x) + tf.multiply(tf.subtract(1., alpha_trans), x_iden)
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
                 # Real/False branch
-                conv_b1 = conv2d(conv, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                conv_b1 = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
                 conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
                 output_b1 = fc(conv_b1, units=1)
 
                 # Match/Mismatch branch
-                concat = self.concat_cond(conv, cond)
+                concat = self.concat_cond(x, cond)
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b2 = layer_norm(conv_b2, act=lrelu_act())
                 conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
@@ -272,42 +269,41 @@ class PGGAN(object):
 
             return output_b1, output_b2
 
-    def generator(self, z_var, cond, stages, t, reuse=False, cond_noise=True):
-        alpha_trans = self.alpha_tra
+    def generator(self, z, cond, stages, t, reuse=False, cond_noise=True):
+        alpha_trans = self.alpha
         with tf.variable_scope('g_net', reuse=reuse):
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
-                de = tf.reshape(z_var, [-1, 1, 1, self.get_nf(0)])
-                de = conv2d_transpose(de, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=tf.nn.relu, padding='VALID')
+                x = tf.reshape(z, [-1, 1, 1, self.get_nf(0)])
+                x = conv2d_transpose(x, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=tf.nn.relu, padding='VALID')
 
                 mean, log_sigma = self.generate_conditionals(cond)
                 cond = self.sample_normal_conditional(mean, log_sigma, cond_noise)
 
-                de = self.concat_cond(de, cond)
-                de = conv2d(de, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                de = layer_norm(de, act=tf.nn.relu)
+                x = self.concat_cond(x, cond)
+                x = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                x = layer_norm(x, act=tf.nn.relu)
 
-            de_iden = None
+            x_iden = None
             for i in range(1, stages):
 
                 if (i == stages - 1) and t:
-                    # To RGB
-                    de_iden = self.to_rgb(de, stages - 2)
-                    de_iden = upscale(de_iden, 2)
+                    x_iden = self.to_rgb(x, stages - 2)
+                    x_iden = upscale(x_iden, 2)
 
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
-                    de = upscale(de, 2)
-                    de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = layer_norm(de, act=tf.nn.relu)
-                    de = conv2d(de, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
-                    de = layer_norm(de, act=tf.nn.relu)
+                    x = upscale(x, 2)
+                    x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
+                    x = layer_norm(x, act=tf.nn.relu)
+                    x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
+                    x = layer_norm(x, act=tf.nn.relu)
 
-            de = self.to_rgb(de, stages - 1)
+            x = self.to_rgb(x, stages - 1)
 
             if t:
-                de = tf.multiply(tf.subtract(1., alpha_trans), de_iden) + tf.multiply(alpha_trans, de)
+                x = tf.multiply(tf.subtract(1., alpha_trans), x_iden) + tf.multiply(alpha_trans, x)
 
-            return de, mean, log_sigma
+            return x, mean, log_sigma
 
     def concat_cond(self, x, cond):
         cond_compress = fc(cond, units=128, act=lrelu_act())
@@ -323,10 +319,7 @@ class PGGAN(object):
         return 'conv_stage_%d' % stage
 
     def get_nf(self, stage):
-        return min(1024 // (2 ** (stage * 1)), 512)
-
-    def get_dnf(self, stage):
-        return min(1024 // (2 ** (stage + 1)), 256)
+        return min(1024 // (2 ** stage) * 4, 512)
 
     def from_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):

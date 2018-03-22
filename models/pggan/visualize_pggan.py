@@ -20,6 +20,8 @@ if __name__ == "__main__":
     cfg = config_from_yaml(FLAGS.cfg)
 
     batch_size = 16
+    z_dim = 512
+
     datadir = cfg.DATASET_DIR
     dataset = TextDataset(datadir, 64)
 
@@ -29,7 +31,7 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    z_sample = np.random.standard_normal((batch_size, 512))
+    z_sample = np.random.standard_normal((batch_size, z_dim))
 
     dataset_pos = np.random.randint(0, dataset.test.num_examples)
     _, conditions, _, captions = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
@@ -39,9 +41,6 @@ if __name__ == "__main__":
     for i in range(0, len(stage)):
         print('Generating stage %d' % (i + 1), flush=True)
 
-        sample_size = 512
-        GAN_learn_rate = 1e-4
-
         pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage[i])
         if not os.path.exists(pggan_checkpoint_dir_read):
             os.makedirs(pggan_checkpoint_dir_read)
@@ -49,12 +48,12 @@ if __name__ == "__main__":
         run_config = tf.ConfigProto()
         run_config.gpu_options.allow_growth = True
 
-        pggan = PGGAN(batch_size=batch_size, max_iters=-1, model_path='', read_model_path=pggan_checkpoint_dir_read,
-                      data=dataset, sample_size=sample_size, sample_path='', log_dir='', learn_rate=GAN_learn_rate,
-                      stage=stage[i], t=False, build_model=False)
+        pggan = PGGAN(batch_size=batch_size, steps=None, check_dir_write=None,
+                      check_dir_read=pggan_checkpoint_dir_read,
+                      dataset=dataset, sample_path=None, log_dir=None, stage=stage[i], trans=False, build_model=False)
 
         cond = tf.placeholder(tf.float32, [None, 1024], name='cond')
-        z = tf.placeholder(tf.float32, [None, sample_size], name='z')
+        z = tf.placeholder(tf.float32, [None, z_dim], name='z')
         gen_op, _, _ = pggan.generator(z, cond, stages=stage[i], t=False)
 
         config = tf.ConfigProto()

@@ -4,7 +4,7 @@ from models.wgancls.model import WGanCls
 from models.wgancls.trainer import WGanClsTrainer
 from models.wgancls.eval_wgan import WGanClsEval
 from models.wgancls.visualize_wgan import WGanClsVisualizer
-from utils.utils import pp, show_all_variables
+from utils.utils import show_all_variables
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset
 
