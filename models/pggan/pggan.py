@@ -117,7 +117,7 @@ class PGGAN(object):
         self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
         self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
 
-        with tf.control_dependencies([self.alpha_assign]):
+        with tf.control_dependencies([self.alpha_assign, self.dt_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
         self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
@@ -266,13 +266,16 @@ class PGGAN(object):
                 conv_iden = self.from_rgb(conv_iden, stages - 2)
 
             conv = self.from_rgb(inp, stages - 1)
+            conv =  gn(conv, self.dt)
 
             for i in range(stages - 1, 0, -1):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     conv = conv2d(conv, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     conv = layer_norm(conv, act=lrelu_act())
+                    conv = gn(conv, self.dt)
                     conv = conv2d(conv, f=self.get_nf(i-1), ks=(3, 3), s=(1, 1))
                     conv = layer_norm(conv, act=lrelu_act())
+                    conv = gn(conv, self.dt)
                     conv = pool(conv, 2)
                 if i == stages - 1 and t:
                     conv = tf.multiply(alpha_trans, conv) + tf.multiply(tf.subtract(1., alpha_trans), conv_iden)
@@ -281,6 +284,7 @@ class PGGAN(object):
                 # Real/False branch
                 conv_b1 = conv2d(conv, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
+                conv_b1 = gn(conv_b1, self.dt)
                 conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
                 output_b1 = fc(conv_b1, units=1)
 
@@ -289,6 +293,8 @@ class PGGAN(object):
                 concat = self.concat_cond4(conv, cond_compress)
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b2 = layer_norm(conv_b2, act=lrelu_act())
+                conv_b2 = gn(conv_b2, self.dt)
+
                 conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
                 output_b2 = fc(conv_b2, units=1)
 

@@ -158,5 +158,7 @@ def df_to_channel(df):
 
 
 def gn(x, mag):
-    return x + 0.2 * tf.square(tf.maximum(0.0, mag - 0.5)) * tf.random_normal(x.get_shape())
+    noise_mag = 1.0 + 0.2 * tf.square(tf.maximum(0.0, mag - 0.5))
+    noise = noise_mag ** tf.random_normal(x.get_shape())
+    return x * noise
 
