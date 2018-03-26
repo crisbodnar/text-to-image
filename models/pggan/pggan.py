@@ -1,7 +1,7 @@
 import tensorflow as tf
 import time
 
-from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm
+from utils.ops import lrelu_act, conv2d, fc, upscale, pool, layer_norm, gn
 from utils.utils import save_images, get_balanced_factorization, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
@@ -31,8 +31,9 @@ class PGGAN(object):
         self.sample_num = 64
         self.embed_dim = 1024
         self.compr_embed_dim = 128
+        self.lr = 0.0001
+        self.lr_inp = self.lr
         self.output_size = 4 * pow(2, stage - 1)
-        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
 
         if build_model:
             self.build_model()
@@ -41,9 +42,12 @@ class PGGAN(object):
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
+        self.dt = tf.Variable(0.0, trainable=False)
+        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
+
         self.iter = tf.placeholder(tf.int32, shape=None)
+        self.learning_rate = tf.placeholder(tf.float32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
-        self.xp = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='xp')
         self.x_mismatch = tf.placeholder(tf.float32,
                                          [self.batch_size, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
@@ -64,14 +68,12 @@ class PGGAN(object):
                                                             t=self.trans)
         _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True, stages=self.stage, t=self.trans)
 
-        interp = tf.random_uniform(shape=[self.batch_size, 1, 1, 1]
-                                   )
-        self.x_interp = self.x + interp * (self.xp - self.x)
-        self.Dx_interp, self.Dxm_interp = self.discriminator(self.x_interp, self.cond, reuse=True, stages=self.stage,
-                                                             t=self.trans)
-
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
                                             t=self.trans)
+
+        self.dt_assign = tf.assign(self.dt,
+                                   0.1 * tf.maximum(tf.reduce_mean(self.Dx_logit), tf.reduce_mean(self.Dxma_logit))
+                                   + tf.multiply(0.9, self.dt))
         self.alpha_assign = tf.assign(self.alpha_tra,
                                       (tf.cast(tf.cast(self.iter, tf.float32) / self.max_iters, tf.float32)))
 
@@ -99,11 +101,8 @@ class PGGAN(object):
 
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
-        self.gp1 = self.get_gradient_penalty(self.x_interp, self.Dx_interp)
-        self.gp2 = self.get_gradient_penalty(self.x_interp, self.Dxm_interp)
 
         self.D_loss = self.D_realism_loss + self.D_matching_loss
-        self.D_loss += 10.0 * (self.gp1 + self.gp2)
 
         self.G_kl_loss_lr = self.kl_std_normal_loss(self.mean_lr, self.log_sigma_lr)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
@@ -115,12 +114,12 @@ class PGGAN(object):
             self.G_kl_loss_hr = self.kl_std_normal_loss(self.mean_hr, self.log_sigma_hr)
             self.G_loss += self.kl_coeff * self.G_kl_loss_hr
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
+        self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
 
         with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
-            self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
+        self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
         # variables to save
         vars_to_save = self.get_variables_up_to_stage(self.stage)
@@ -156,17 +155,14 @@ class PGGAN(object):
             tf.summary.scalar('D_loss_real', self.D_loss_real),
             tf.summary.scalar('D_real_match_loss', self.D_real_match_loss),
             tf.summary.scalar('D_real_mismatch_loss', self.D_real_mismatch_loss),
-            tf.summary.scalar('gp1', self.gp1),
-            tf.summary.scalar('gp2', self.gp2),
             tf.summary.scalar('D_g_match_loss', self.D_g_match_loss),
-            tf.summary.scalar('D_loss', self.D_loss)
+            tf.summary.scalar('D_loss', self.D_loss),
+            tf.summary.scalar('dt', self.dt),
+            tf.summary.scalar('lr', self.learning_rate)
         ]
         if self.stage >= 6:
             summaries.append(tf.summary.scalar('G_kl_loss_hr', self.G_kl_loss_hr))
         self.summary_op = tf.summary.merge(summaries)
-
-    def get_perturbed_batch(self, minibatch):
-        return minibatch + 0.5 * minibatch.std() * np.random.random(minibatch.shape)
 
     # do train
     def train(self):
@@ -176,14 +172,15 @@ class PGGAN(object):
         with tf.Session(config=config) as sess:
 
             summary_writer = tf.summary.FileWriter(self.log_dir, sess.graph)
+            start_point = 0
 
             if self.stage != 1:
                 if self.trans:
-                    could_load = load(self.restore, sess, self.read_model_path)
+                    could_load, _ = load(self.restore, sess, self.read_model_path)
                     if not could_load:
                         raise RuntimeError('Could not load previous stage during transition')
                 else:
-                    could_load = load(self.saver, sess, self.read_model_path)
+                    could_load, _ = load(self.saver, sess, self.read_model_path)
                     if not could_load:
                         raise RuntimeError('Could not load current stage')
 
@@ -199,8 +196,12 @@ class PGGAN(object):
             save_captions(self.sample_path, captions)
             start_time = time.time()
 
-            start_point = 0
             for idx in range(start_point + 1, self.max_iters):
+                if self.trans:
+                    # Reduce the learning rate during the transition period and slowly increase it
+                    p = idx / self.max_iters
+                    self.lr_inp = self.lr * np.exp(-2 * np.square(1 - p))
+
                 epoch_size = self.dataset.train.num_examples // self.batch_size
                 epoch = idx // epoch_size
 
@@ -212,7 +213,7 @@ class PGGAN(object):
 
                 feed_dict = {
                     self.x: images,
-                    self.xp: self.get_perturbed_batch(images),
+                    self.learning_rate: self.lr_inp,
                     self.x_mismatch: wrong_images,
                     self.cond: embed,
                     self.z: batch_z,

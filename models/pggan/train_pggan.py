@@ -17,20 +17,15 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(0, len(stage)):
+    for i in range(9, len(stage)):
 
         t = False if (i % 2 == 0) else True
 
         cfg = config_from_yaml(FLAGS.cfg)
 
-        batch_size = 16
-        scale_factor = 1
-
-        if stage[i] <= 4 or t:
-            max_iters = 37500 * scale_factor
-        else:
-            max_iters = 37500 * scale_factor
-
+        batch_size = 8
+        images = 600000
+        max_iters = images // batch_size
         sample_size = 128
         GAN_learn_rate = 1e-4
 
