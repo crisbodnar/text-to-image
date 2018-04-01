@@ -36,6 +36,9 @@ class PGGAN(object):
         self.lr_inp = self.lr
         self.output_size = 4 * pow(2, stage - 1)
 
+        self.dt = tf.Variable(0.0, trainable=False)
+        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
+
         if build_model:
             self.build_model()
             self.define_losses()
@@ -43,9 +46,6 @@ class PGGAN(object):
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
-        self.dt = tf.Variable(0.0, trainable=False)
-        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
-
         self.iter = tf.placeholder(tf.int32, shape=None)
         self.learning_rate = tf.placeholder(tf.float32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')

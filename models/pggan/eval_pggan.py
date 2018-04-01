@@ -26,11 +26,11 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    batch_size = 128
+    batch_size = 8
     scale_factor = 1
-    sample_size = 512
-    stage = 5
-    incep_batch_size = 128
+    sample_size = 128
+    stage = 7
+    incep_batch_size = 8
     incep_checkpoint_dir = './checkpoints/Inception/flowers/'
 
     pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     pggan = PGGAN(batch_size=batch_size, steps=None,
                   check_dir_write='', check_dir_read=pggan_checkpoint_dir_read,
                   dataset=dataset, sample_path=None, log_dir=None, stage=stage,
-                  trans=False)
+                  trans=False, build_model=False)
 
     cond = tf.placeholder(tf.float32, [None, 1024], name='cond')
     z = tf.placeholder(tf.float32, [None, sample_size], name='z')
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         logits, _ = load_inception_inference(sess, 20, incep_batch_size, incep_checkpoint_dir)
         pred_op = tf.nn.softmax(logits)
 
-        size = 50000
+        size = 5000
         n_batches = size // batch_size
 
         all_preds = []
