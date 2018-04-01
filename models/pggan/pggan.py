@@ -31,7 +31,7 @@ class PGGAN(object):
         self.sample_num = 64
         self.embed_dim = 1024
         self.compr_embed_dim = 128
-        self.lr = 0.0001
+        self.lr = 0.00005
         self.lr_inp = self.lr
         self.output_size = 4 * pow(2, stage - 1)
 
@@ -102,7 +102,8 @@ class PGGAN(object):
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
 
-        self.D_loss = self.D_realism_loss + self.D_matching_loss
+        self.D_loss = 3.5 * (self.D_loss_real + self.D_real_match_loss + self.D_real_mismatch_loss)
+        self.D_loss += self.D_g_match_loss + self.D_loss_fake
 
         self.G_kl_loss_lr = self.kl_std_normal_loss(self.mean_lr, self.log_sigma_lr)
         self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
@@ -114,8 +115,8 @@ class PGGAN(object):
             self.G_kl_loss_hr = self.kl_std_normal_loss(self.mean_hr, self.log_sigma_hr)
             self.G_loss += self.kl_coeff * self.G_kl_loss_hr
 
-        self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
+        self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
 
         with tf.control_dependencies([self.alpha_assign, self.dt_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
@@ -200,7 +201,7 @@ class PGGAN(object):
                 if self.trans:
                     # Reduce the learning rate during the transition period and slowly increase it
                     p = idx / self.max_iters
-                    self.lr_inp = self.lr * np.exp(-2 * np.square(1 - p))
+                    self.lr_inp = self.lr  # * np.exp(-2 * np.square(1 - p))
 
                 epoch_size = self.dataset.train.num_examples // self.batch_size
                 epoch = idx // epoch_size
@@ -261,12 +262,14 @@ class PGGAN(object):
         alpha_trans = self.alpha_tra
         with tf.variable_scope("d_net", reuse=reuse):
             conv_iden = None
+            inp = gn(inp, self.dt)
+
             if t:
                 conv_iden = pool(inp, 2)
                 conv_iden = self.from_rgb(conv_iden, stages - 2)
 
             conv = self.from_rgb(inp, stages - 1)
-            conv =  gn(conv, self.dt)
+            conv = gn(conv, self.dt)
 
             for i in range(stages - 1, 0, -1):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
@@ -286,6 +289,7 @@ class PGGAN(object):
                 conv_b1 = layer_norm(conv_b1, act=lrelu_act())
                 conv_b1 = gn(conv_b1, self.dt)
                 conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
+                conv_b1 = gn(conv_b1, self.dt)
                 output_b1 = fc(conv_b1, units=1)
 
                 # Match/Mismatch branch
@@ -294,8 +298,8 @@ class PGGAN(object):
                 conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 conv_b2 = layer_norm(conv_b2, act=lrelu_act())
                 conv_b2 = gn(conv_b2, self.dt)
-
                 conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
+                conv_b2 = gn(conv_b2, self.dt)
                 output_b2 = fc(conv_b2, units=1)
 
             return output_b1, output_b2
