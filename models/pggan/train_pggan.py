@@ -23,13 +23,10 @@ if __name__ == "__main__":
 
         cfg = config_from_yaml(FLAGS.cfg)
 
-        batch_size = 16
-        scale_factor = 1
-
-        if stage[i] <= 4 or t:
-            max_iters = 50000 * scale_factor
-        else:
-            max_iters = 50000 * scale_factor
+        batch_size = 4
+        images = 600000
+        max_iters = images // batch_size
+        sample_size = 128
 
         pggan_checkpoint_dir_write = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage[i])
         pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % prev_stage[i])
@@ -64,7 +61,7 @@ if __name__ == "__main__":
 
         pggan = PGGAN(batch_size=batch_size, steps=max_iters,
                       check_dir_write=pggan_checkpoint_dir_write, check_dir_read=pggan_checkpoint_dir_read,
-                      dataset=dataset, z_dim=sample_size, sample_path=sample_path, log_dir=logs_dir, stage=stage[i],
+                      dataset=dataset, sample_path=sample_path, log_dir=logs_dir, stage=stage[i],
                       trans=t)
 
         pggan.train()

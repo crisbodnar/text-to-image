@@ -1,7 +1,7 @@
 import tensorflow as tf
 import time
 
-from utils.ops import lrelu_act, conv2d, fc, upscale, pool, conv2d_transpose, layer_norm
+from utils.ops import lrelu_act, conv2d, fc, upscale, pool, layer_norm, gn
 from utils.utils import save_images, get_balanced_factorization, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
 from utils.saver import load, save
@@ -25,12 +25,16 @@ class PGGAN(object):
         self.stage = stage
         self.trans = trans
 
-        self.z_dim = 512
+        self.z_dim = 128
         self.embed_dim = 1024
         self.out_size = 4 * pow(2, stage - 1)
         self.channel = 3
         self.sample_num = 64
-        self.alpha = tf.Variable(initial_value=0.0, trainable=False, name='alpha')
+        self.embed_dim = 1024
+        self.compr_embed_dim = 128
+        self.lr = 0.00005
+        self.lr_inp = self.lr
+        self.output_size = 4 * pow(2, stage - 1)
 
         if build_model:
             self.build_model()
@@ -39,20 +43,26 @@ class PGGAN(object):
 
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
+        self.dt = tf.Variable(0.0, trainable=False)
+        self.alpha_tra = tf.Variable(initial_value=0.0, trainable=False, name='alpha_tra')
+
         self.iter = tf.placeholder(tf.int32, shape=None)
-        self.x = tf.placeholder(tf.float32, [None, self.out_size, self.out_size, self.channel], name='x')
+        self.learning_rate = tf.placeholder(tf.float32, shape=None)
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
         self.x_mismatch = tf.placeholder(tf.float32,
-                                         [None, self.out_size, self.out_size, self.channel],
+                                         [self.batch_size, self.output_size, self.output_size, self.channel],
                                          name='x_mismatch')
-        self.cond = tf.placeholder(tf.float32, [None, self.embed_dim], name='cond')
-        self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')
-        self.epsilon = tf.placeholder(tf.float32, [None, 1, 1, 1], name='eps')
+        self.cond = tf.placeholder(tf.float32, [self.batch_size, self.embed_dim], name='cond')
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name='z')
+        self.epsilon = tf.placeholder(tf.float32, [self.batch_size, 1, 1, 1], name='eps')
 
         self.z_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.z_dim], name='z_sample')
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
-        self.G, self.embed_mean, self.embed_log_sigma \
-            = self.generator(self.z, self.cond, stages=self.stage, t=self.trans)
+        self.G, self.mean, self.log_sigma = self.generator(self.z, self.cond, stages=self.stage, t=self.trans)
+        self.mean_lr, self.log_sigma_lr = self.mean[0], self.log_sigma[0]
+        self.mean_hr, self.log_sigma_hr = self.mean[1], self.log_sigma[1]
+
         self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False, stages=self.stage,
                                                            t=self.trans)
         self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage,
@@ -61,7 +71,11 @@ class PGGAN(object):
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
                                             t=self.trans)
-        self.alpha_assign = tf.assign(self.alpha,
+
+        self.dt_assign = tf.assign(self.dt,
+                                   0.1 * tf.maximum(tf.reduce_mean(self.Dx_logit), tf.reduce_mean(self.Dxma_logit))
+                                   + tf.multiply(0.9, self.dt))
+        self.alpha_assign = tf.assign(self.alpha_tra,
                                       (tf.cast(tf.cast(self.iter, tf.float32) / self.steps, tf.float32)))
 
         self.d_vars = tf.trainable_variables('d_net')
@@ -79,32 +93,35 @@ class PGGAN(object):
                                                                       labels=tf.fill(logits.get_shape(), label_val)))
 
     def define_losses(self):
-        self.D_real_match_loss = self.ce_loss(self.Dxma_logit, 1.0)
-        self.D_real_mismatch_loss = self.ce_loss(self.Dxmi_logit, 0.0)
-        self.D_g_match_loss = self.ce_loss(self.Dgm_logit, 0.0)
+        self.D_real_match_loss = tf.reduce_mean(tf.square(self.Dxma_logit - 1))
+        self.D_real_mismatch_loss = tf.reduce_mean(tf.square(self.Dxmi_logit + 1))
+        self.D_g_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit + 1))
 
         self.D_loss_real = tf.reduce_mean(tf.square(self.Dx_logit - 1))
-        self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit))
+        self.D_loss_fake = tf.reduce_mean(tf.square(self.Dg_logit + 1))
 
         self.D_realism_loss = self.D_loss_real + self.D_loss_fake
         self.D_matching_loss = self.D_real_match_loss + self.D_real_mismatch_loss + self.D_g_match_loss
 
-        self.D_loss = self.D_realism_loss + self.D_matching_loss
+        self.D_loss = 3.5 * (self.D_loss_real + self.D_real_match_loss + self.D_real_mismatch_loss)
+        self.D_loss += self.D_g_match_loss + self.D_loss_fake
 
-        self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
-        self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit - 0.5))
-        self.G_match_loss = self.ce_loss(self.Dgm_logit, 1.0)
+        self.G_kl_loss_lr = self.kl_std_normal_loss(self.mean_lr, self.log_sigma_lr)
+        self.G_gan_loss = tf.reduce_mean(tf.square(self.Dg_logit))
+        self.G_match_loss = tf.reduce_mean(tf.square(self.Dgm_logit))
 
-        self.kl_coeff = 1.0
-        self.G_loss = self.G_gan_loss + 0.5 * self.G_match_loss + self.kl_coeff * self.G_kl_loss
+        self.kl_coeff = 2.0
+        self.G_loss = self.G_gan_loss + self.G_match_loss + self.kl_coeff * self.G_kl_loss_lr
+        if self.stage >= 6:
+            self.G_kl_loss_hr = self.kl_std_normal_loss(self.mean_hr, self.log_sigma_hr)
+            self.G_loss += self.kl_coeff * self.G_kl_loss_hr
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
-        self.G_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.9)
+        self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
+        self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies([self.alpha_assign] + update_ops):
+        with tf.control_dependencies([self.alpha_assign, self.dt_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
-            self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
+        self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
         # variables to save
         vars_to_save = self.get_variables_up_to_stage(self.stage)
@@ -123,7 +140,7 @@ class PGGAN(object):
             self.restore = tf.train.Saver(vars_to_restore)
 
     def define_summaries(self):
-        self.summary_op = tf.summary.merge([
+        summaries = [
             tf.summary.image('x', self.x),
             tf.summary.image('G_img', self.G),
 
@@ -133,18 +150,20 @@ class PGGAN(object):
             tf.summary.scalar('Gm_loss', self.G_match_loss),
             tf.summary.scalar('G_gan_loss', self.G_gan_loss),
             tf.summary.scalar('G_loss', self.G_loss),
-            tf.summary.scalar('alpha', self.alpha),
-            tf.summary.scalar('kl_loss', self.G_kl_loss),
-
+            tf.summary.scalar('alpha', self.alpha_tra),
+            tf.summary.scalar('kl_loss', self.G_kl_loss_lr),
             tf.summary.scalar('D_syntehtic_loss', self.D_loss_fake),
             tf.summary.scalar('D_loss_real', self.D_loss_real),
             tf.summary.scalar('D_real_match_loss', self.D_real_match_loss),
             tf.summary.scalar('D_real_mismatch_loss', self.D_real_mismatch_loss),
-            # tf.summary.scalar('D_realism_loss', self.D_realism_loss),
-            # tf.summary.scalar('D_matching_loss', self.D_matching_loss),
             tf.summary.scalar('D_g_match_loss', self.D_g_match_loss),
-            tf.summary.scalar('D_loss', self.D_loss)
-        ])
+            tf.summary.scalar('D_loss', self.D_loss),
+            tf.summary.scalar('dt', self.dt),
+            tf.summary.scalar('lr', self.learning_rate)
+        ]
+        if self.stage >= 6:
+            summaries.append(tf.summary.scalar('G_kl_loss_hr', self.G_kl_loss_hr))
+        self.summary_op = tf.summary.merge(summaries)
 
     # do train
     def train(self):
@@ -154,14 +173,15 @@ class PGGAN(object):
         with tf.Session(config=config) as sess:
 
             summary_writer = tf.summary.FileWriter(self.log_dir, sess.graph)
+            start_point = 0
 
             if self.stage != 1:
                 if self.trans:
-                    could_load = load(self.restore, sess, self.check_dir_read)
+                    could_load, _ = load(self.restore, sess, self.check_dir_read)
                     if not could_load:
                         raise RuntimeError('Could not load previous stage during transition')
                 else:
-                    could_load = load(self.saver, sess, self.check_dir_read)
+                    could_load, _ = load(self.saver, sess, self.check_dir_read)
                     if not could_load:
                         raise RuntimeError('Could not load current stage')
 
@@ -177,8 +197,12 @@ class PGGAN(object):
             save_captions(self.sample_path, captions)
             start_time = time.time()
 
-            start_point = 0
             for idx in range(start_point + 1, self.steps):
+                if self.trans:
+                    # Reduce the learning rate during the transition period and slowly increase it
+                    p = idx / self.steps
+                    self.lr_inp = self.lr  # * np.exp(-2 * np.square(1 - p))
+
                 epoch_size = self.dataset.train.num_examples // self.batch_size
                 epoch = idx // epoch_size
 
@@ -190,6 +214,7 @@ class PGGAN(object):
 
                 feed_dict = {
                     self.x: images,
+                    self.learning_rate: self.lr_inp,
                     self.x_mismatch: wrong_images,
                     self.cond: embed,
                     self.z: batch_z,
@@ -234,53 +259,67 @@ class PGGAN(object):
         tf.reset_default_graph()
 
     def discriminator(self, inp, cond, stages, t, reuse=False):
-        alpha_trans = self.alpha
+        alpha_trans = self.alpha_tra
         with tf.variable_scope("d_net", reuse=reuse):
             x_iden = None
+            inp = gn(inp, self.dt)
             if t:
                 x_iden = pool(inp, 2)
                 x_iden = self.from_rgb(x_iden, stages - 2)
 
             x = self.from_rgb(inp, stages - 1)
+            x = gn(x, self.dt)
 
             for i in range(stages - 1, 0, -1):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     x = layer_norm(x, act=lrelu_act())
+                    x = gn(x, self.dt)
                     x = conv2d(x, f=self.get_nf(i-1), ks=(3, 3), s=(1, 1))
                     x = layer_norm(x, act=lrelu_act())
+                    x = gn(x, self.dt)
                     x = pool(x, 2)
                 if i == stages - 1 and t:
                     x = tf.multiply(alpha_trans, x) + tf.multiply(tf.subtract(1., alpha_trans), x_iden)
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
                 # Real/False branch
-                conv_b1 = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                conv_b1 = layer_norm(conv_b1, act=lrelu_act())
-                conv_b1 = conv2d(conv_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
-                output_b1 = fc(conv_b1, units=1)
+                x_b1 = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                x_b1 = layer_norm(x_b1, act=lrelu_act())
+                x_b1 = gn(x_b1, self.dt)
+                x_b1 = conv2d(x_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
+                x_b1 = gn(x_b1, self.dt)
+                output_b1 = fc(x_b1, units=1)
 
                 # Match/Mismatch branch
-                concat = self.concat_cond(x, cond)
-                conv_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
-                conv_b2 = layer_norm(conv_b2, act=lrelu_act())
-                conv_b2 = conv2d(conv_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
-                output_b2 = fc(conv_b2, units=1)
+                cond_compress = fc(cond, units=128, act=lrelu_act())
+                concat = self.concat_cond4(x, cond_compress)
+                x_b2 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                x_b2 = layer_norm(x_b2, act=lrelu_act())
+                x_b2 = gn(x_b2, self.dt)
+                x_b2 = conv2d(x_b2, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID')
+                x_b2 = gn(x_b2, self.dt)
+                output_b2 = fc(x_b2, units=1)
 
             return output_b1, output_b2
 
-    def generator(self, z, cond, stages, t, reuse=False, cond_noise=True):
-        alpha_trans = self.alpha
+    def generator(self, z_var, cond_inp, stages, t, reuse=False, cond_noise=True):
+        alpha_trans = self.alpha_tra
+        mean_hr = None
+        log_sigma_hr = None
         with tf.variable_scope('g_net', reuse=reuse):
 
             with tf.variable_scope(self.get_conv_scope_name(0), reuse=reuse):
-                x = tf.reshape(z, [-1, 1, 1, self.get_nf(0)])
-                x = conv2d_transpose(x, f=self.get_nf(0), ks=(4, 4), s=(1, 1), act=tf.nn.relu, padding='VALID')
+                mean_lr, log_sigma_lr = self.generate_conditionals(cond_inp)
+                cond = self.sample_normal_conditional(mean_lr, log_sigma_lr, cond_noise)
 
-                mean, log_sigma = self.generate_conditionals(cond)
-                cond = self.sample_normal_conditional(mean, log_sigma, cond_noise)
+                x = tf.concat([z_var, cond], axis=1)
+                x = fc(x, units=4*4*self.get_nf(0))
+                x = layer_norm(x)
+                x = tf.reshape(x, [-1, 4, 4, self.get_nf(0)])
 
-                x = self.concat_cond(x, cond)
+                x = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
+                x = layer_norm(x, act=tf.nn.relu)
                 x = conv2d(x, f=self.get_nf(0), ks=(3, 3), s=(1, 1))
                 x = layer_norm(x, act=tf.nn.relu)
 
@@ -293,6 +332,8 @@ class PGGAN(object):
 
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
                     x = upscale(x, 2)
+                    if i == 5:
+                        x, mean_hr, log_sigma_hr = self.concat_cond128(x, cond_inp, cond_noise)
                     x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
                     x = layer_norm(x, act=tf.nn.relu)
                     x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1))
@@ -303,14 +344,22 @@ class PGGAN(object):
             if t:
                 x = tf.multiply(tf.subtract(1., alpha_trans), x_iden) + tf.multiply(alpha_trans, x)
 
-            return x, mean, log_sigma
+            return x, [mean_lr, mean_hr], [log_sigma_lr, log_sigma_hr]
 
-    def concat_cond(self, x, cond):
-        cond_compress = fc(cond, units=128, act=lrelu_act())
-        cond_compress = tf.expand_dims(tf.expand_dims(cond_compress, 1), 1)
+    def concat_cond4(self, x, cond):
+        cond_compress = tf.expand_dims(tf.expand_dims(cond, 1), 1)
         cond_compress = tf.tile(cond_compress, [1, 4, 4, 1])
         x = tf.concat([x, cond_compress], axis=3)
         return x
+
+    def concat_cond128(self, x, cond_inp, cond_noise=True):
+        mean, log_sigma = self.generate_conditionals(cond_inp, units=256)
+        cond = self.sample_normal_conditional(mean, log_sigma, cond_noise)
+
+        cond_compress = tf.reshape(cond, [-1, 16, 16, 1])
+        cond_compress = tf.tile(cond_compress, [1, 8, 8, 8])
+        x = tf.concat([x, cond_compress], axis=3)
+        return x, mean, log_sigma
 
     def get_rgb_name(self, stage):
         return 'rgb_stage_%d' % stage
@@ -325,10 +374,10 @@ class PGGAN(object):
         with tf.variable_scope(self.get_rgb_name(stage)):
             return conv2d(x, f=self.get_nf(stage), ks=(1, 1), s=(1, 1), act=lrelu_act())
 
-    def generate_conditionals(self, embeddings):
+    def generate_conditionals(self, embeddings, units=128):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
-        mean = fc(embeddings, 128, act=lrelu_act())
-        log_sigma = fc(embeddings, 128, act=lrelu_act())
+        mean = fc(embeddings, units, act=lrelu_act())
+        log_sigma = fc(embeddings, units, act=lrelu_act())
         return mean, log_sigma
 
     def sample_normal_conditional(self, mean, log_sigma, cond_noise=True):
@@ -345,6 +394,7 @@ class PGGAN(object):
 
     def to_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
+            x = conv2d(x, f=9, ks=(2, 2), s=(1, 1), act=tf.nn.relu)
             return conv2d(x, f=3, ks=(1, 1), s=(1, 1))
 
     def get_adam_vars(self, opt, vars_to_train):

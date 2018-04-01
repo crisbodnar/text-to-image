@@ -140,3 +140,8 @@ def df_to_channel(df):
     raise RuntimeError('Invalid data format %s' % df)
 
 
+def gn(x, mag):
+    noise_mag = 1.0 + 0.2 * tf.square(tf.maximum(0.0, mag - 0.5))
+    noise = noise_mag ** tf.random_normal(x.get_shape())
+    return x * noise
+

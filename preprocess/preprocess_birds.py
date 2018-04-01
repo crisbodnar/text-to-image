@@ -9,8 +9,8 @@ import pandas as pd
 from sklearn.externals import joblib
 
 
-IMG_SIZES = [76, 304]
-LOAD_SIZE = 304
+IMG_SIZES = [152]
+LOAD_SIZE = 160
 BIRD_DIR = './data/birds'
 
 
