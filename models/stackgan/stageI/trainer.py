@@ -14,8 +14,10 @@ class ConditionalGanTrainer(object):
         self.model = model
         self.dataset = dataset
         self.cfg = cfg
+        self.lr = self.cfg.TRAIN.D_LR
 
     def define_losses(self):
+        self.learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='lr')
         self.D_synthetic_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=self.model.D_synthetic_logits,
                                                     labels=tf.zeros_like(self.model.D_synthetic)))
@@ -45,9 +47,9 @@ class ConditionalGanTrainer(object):
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.D_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.D_LR, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
+            self.D_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.cfg.TRAIN.D_BETA_DECAY) \
                 .minimize(self.D_loss, var_list=self.model.d_vars)
-            self.G_optim = tf.train.AdamOptimizer(self.cfg.TRAIN.G_LR, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
+            self.G_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.cfg.TRAIN.G_BETA_DECAY) \
                 .minimize(self.G_loss, var_list=self.model.g_vars)
 
     def kl_loss(self, mean, log_sigma):
@@ -112,6 +114,7 @@ class ConditionalGanTrainer(object):
         for epoch in range(self.cfg.TRAIN.EPOCH):
             # Updates per epoch are given by the training data size / batch size
             updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+            cen_epoch = epoch // 100
 
             for idx in range(0, updates_per_epoch):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
@@ -119,6 +122,7 @@ class ConditionalGanTrainer(object):
                 batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
                 feed_dict = {
+                    self.learning_rate: self.lr * (0.5**cen_epoch),
                     self.model.inputs: images,
                     self.model.wrong_inputs: wrong_images,
                     self.model.embed_inputs: embed,
