@@ -14,6 +14,7 @@ class InceptionTrainer(object):
     def __init__(self, sess: tf.Session, dataset: TextDataset, cfg):
         self.sess = sess
         self.dataset = dataset
+        self.class_to_idx = self.dataset.test.class_to_index()
         self.cfg = cfg
 
     def define_summaries(self):
@@ -89,14 +90,20 @@ class InceptionTrainer(object):
 
             images, _, _, _, labels = self.dataset.test.next_batch(batch_size, labels=True)
 
+            # Bring the labels in a continuous range: [0, num_classes)
+            new_labels = []
+            for label in labels:
+                new_labels.append(self.class_to_idx[label])
+
+            print(new_labels)
             assert(np.min(images) >= -1.)
             assert(np.max(images) <= 1.)
-            assert(np.min(labels) >= 0)
-            assert(np.max(labels) <= 19)
+            assert(np.min(new_labels) >= 0)
+            assert(np.max(new_labels) < 50)  # 20 for flowers, 50 for birds
 
             feed_dict = {
                 self.x: images,
-                self.labels: labels,
+                self.labels: new_labels,
             }
 
             _, err = self.sess.run([self.opt_step, self.loss], feed_dict=feed_dict)

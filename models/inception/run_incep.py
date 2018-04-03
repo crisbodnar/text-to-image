@@ -8,8 +8,10 @@ from preprocess.dataset import TextDataset
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './models/inception/cfg/flowers.yaml',
-                    'Relative path to the config of the model [./models/inception/cfg/flowers.yaml]')
+# flags.DEFINE_string('cfg', './models/inception/cfg/flowers.yaml',
+#                     'Relative path to the config of the model [./models/inception/cfg/flowers.yaml]')
+flags.DEFINE_string('cfg', './models/inception/cfg/birds.yaml',
+                    'Relative path to the config of the model [./models/inception/cfg/birds.yaml]')
 FLAGS = flags.FLAGS
 
 
