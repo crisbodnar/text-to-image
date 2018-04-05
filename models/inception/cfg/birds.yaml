@@ -1,0 +1,18 @@
+CONFIG_NAME: 'Inception'
+DATASET_NAME: 'birds'
+
+DATASET_DIR: './data/birds/'
+CHECKPOINT_DIR: './checkpoints/Inception/birds/'
+LOGS_DIR: './logs/Inception/'
+
+MODEL:
+  CLASSES: 50
+
+TRAIN:
+  MAX_STEPS: 30000
+  RESTORE_PRETRAIN: True
+  PRETRAINED_CHECKPOINT_DIR: './checkpoints/Inception/imagenet/inception_v3.ckpt'
+  FLAG: True
+  BATCH_SIZE: 64 # Size of the training batches
+  CHECKPOINTS_TO_KEEP: 2
+  SUMMARY_PERIOD: 5

@@ -215,6 +215,16 @@ class Dataset(object):
         return [sampled_images, sampled_embeddings_batchs,
                 self._saveIDs[start:end], sampled_captions]
 
+    @property
+    def class_ids(self):
+        return self._class_id
+
+    def class_to_index(self):
+        class_to_idx = {}
+        for idx, class_id in enumerate(np.unique(self._class_id)):
+            class_to_idx[class_id] = idx
+        return class_to_idx
+
 
 class TextDataset(object):
     def __init__(self, workdir, size):
@@ -267,6 +277,8 @@ class TextDataset(object):
             class_id = pickle.load(f, encoding='bytes')
             # Bring classes from range [1: 102] to [0: 101]
             class_id = np.array(class_id) - 1
+            print('Class ids:')
+            print(np.unique(class_id))
 
         return Dataset(images, self.image_shape[0], embeddings,
                        list_filenames, self.workdir, class_id,

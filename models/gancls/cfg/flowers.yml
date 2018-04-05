@@ -19,7 +19,7 @@ MODEL:
     D: 3
 
 TRAIN:
-  FLAG: False
+  FLAG: True
   BATCH_SIZE: 64 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
   EPOCH: 600 # The number of epochs to train.
