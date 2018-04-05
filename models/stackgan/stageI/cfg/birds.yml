@@ -1,0 +1,44 @@
+CONFIG_NAME: 'ConditionalGAN-StageI'
+DATASET_NAME: 'birds'
+
+DATASET_DIR: './data/birds/'
+CHECKPOINT_DIR: './checkpoints/ConditionalGAN-StageI/birds/'
+LOGS_DIR: './logs/stageI_logs/'
+SAMPLE_DIR: './samples/StackGAN-StageI/birds/'
+
+MODEL:
+  Z_DIM: 100 # Dimension of the noise vector
+  OUTPUT_SIZE: 64 # The ouput size of the image (e.g 64x64)
+  EMBED_DIM: 1024 # The dimension of the embedding before compression (as given by the cnn-rnn encoder)
+  COMPRESSED_EMBED_DIM: 128 # The dimension of the embedding after compression
+  GF_DIM: 128 # The number of filters in the first convolutional layer of the generator
+  DF_DIM: 64 # The number of filters in the first convolutional layer of the discriminator
+  IMAGE_SHAPE:
+    W: 64
+    H: 64
+    D: 3
+
+TRAIN:
+  FLAG: True
+  BATCH_SIZE: 32 # Size of the training batches
+  SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
+  EPOCH: 600 # The number of epochs to train.
+  D_LR: 0.0002 # Discriminator learning rate
+  D_BETA_DECAY: 0.5 # Discriminator beta decay in AdamOptimiser
+  G_LR: 0.0002 # Generator learning rate
+  G_BETA_DECAY: 0.5 # Generator beta decay in AdamOptimiser
+  NUM_EMBEDDINGS: 4
+  CHECKPOINTS_TO_KEEP: 3
+  COEFF:
+    ALPHA_MISMATCH_LOSS: 0.5
+    KL: 2.0
+
+EVAL:
+  FLAG: False
+  INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/birds/
+  SAMPLE_SIZE: 1000
+  INCEP_BATCH_SIZE: 64
+  NUM_CLASSES: 20
+  SIZE: 50000
+  ACT_STAT_PATH: ./data/fid/birds/stats.npz
+  R_IMG_PATH: ./data/birds/jpg

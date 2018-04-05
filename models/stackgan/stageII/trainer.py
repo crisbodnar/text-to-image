@@ -120,9 +120,11 @@ class ConditionalGanTrainer(object):
 
         initialize_uninitialized(self.sess)
 
-        for epoch in range(self.cfg.TRAIN.EPOCH):
-            # Updates per epoch are given by the training data size / batch size
-            updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+        # Updates per epoch are given by the training data size / batch size
+        updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+        epoch_start = counter // updates_per_epoch
+
+        for epoch in range(epoch_start, self.cfg.TRAIN.EPOCH):
 
             for idx in range(0, updates_per_epoch):
                 images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
@@ -152,7 +154,7 @@ class ConditionalGanTrainer(object):
                       % (epoch, idx, updates_per_epoch,
                          time.time() - start_time, err_d, err_g))
 
-                if np.mod(counter, 100) == 0:
+                if np.mod(counter, 2000) == 0:
                     try:
                         samples = self.sess.run(self.model.sampler,
                                                 feed_dict={
