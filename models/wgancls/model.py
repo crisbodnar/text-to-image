@@ -61,11 +61,10 @@ class WGanCls(object):
     def get_gradient_penalty(self, x, y):
         grad_y = tf.gradients(y, [x])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
-        return tf.reduce_mean(tf.square(slopes - 1.))
+        return tf.reduce_mean((slopes - 1.)**2)
 
     def realism_branch(self, x, f, df=NCHW):
-        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=df)
+        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df, act=lrelu_act())
 
         out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=df)
         return out
@@ -92,7 +91,7 @@ class WGanCls(object):
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist + 10.0 * self.real_gp - self.wdist2
+        self.D_loss = -self.wdist + 20.0 * self.real_gp - self.wdist2
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
@@ -139,21 +138,15 @@ class WGanCls(object):
 
         with tf.variable_scope("d_net", reuse=reuse):
             net_ho = conv2d(inputs, self.df_dim, ks=(4, 4), s=(2, 2), act=lrelu, df=NCHW)
-            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h1 = layer_norm(net_h1, act=lrelu, df=NCHW)
-            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h2 = layer_norm(net_h2, act=lrelu, df=NCHW)
+            net_h1 = conv2d(net_ho, self.df_dim * 2, ks=(4, 4), s=(2, 2), df=NCHW, act=lrelu)
+            net_h2 = conv2d(net_h1, self.df_dim * 4, ks=(4, 4), s=(2, 2), df=NCHW, act=lrelu)
             net_h3 = conv2d(net_h2, self.df_dim * 8, ks=(4, 4), s=(2, 2), df=NCHW)
-            net_h3 = layer_norm(net_h3, df=NCHW)
             # --------------------------------------------------------
 
             # Residual layer
-            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW)
-            net = layer_norm(net, act=lrelu, df=NCHW)
-            net = conv2d(net, self.df_dim * 4, ks=(3, 3), s=(1, 1), df=NCHW)
-            net = layer_norm(net, act=lrelu, df=NCHW)
+            net = conv2d(net_h3, self.df_dim * 2, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW, act=lrelu)
+            net = conv2d(net, self.df_dim * 4, ks=(3, 3), s=(1, 1), df=NCHW, act=lrelu)
             net = conv2d(net, self.df_dim * 8, ks=(3, 3), s=(1, 1), df=NCHW)
-            net = layer_norm(net, df=NCHW)
             net_h4 = tf.add(net_h3, net)
             net_h4 = tf.nn.leaky_relu(net_h4, 0.2)
             # --------------------------------------------------------

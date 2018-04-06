@@ -25,7 +25,7 @@ TRAIN:
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
   D_LR: 0.00003 # Learning rate
   G_LR: 0.00001
-  BETA1: 0.5 # Adam beta1
+  BETA1: 0.0 # Adam beta1
   BETA2: 0.9 # Adam beta2
   SUMMARY_PERIOD: 10
   NUM_EMBEDDINGS: 4

@@ -58,15 +58,17 @@ def batch_renorm(x, train, init=None, act=None, name=None, eps=1e-5, decay=0.9, 
 def conv2d(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None, df=NHWC):
     if init is None:
         init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
-    return tf.layers.conv2d(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                            kernel_initializer=init, name=name, data_format=df_to_channel(df))
+    return tf.contrib.layers.conv2d(inputs=x, num_outputs=f, kernel_size=ks, stride=s, padding=padding,
+                                    activation_fn=act,
+                                    weights_initializer=init, scope=name, data_format=df)
 
 
 def conv2d_transpose(x, f, ks=(4, 4), s=(2, 2), padding='SAME', act=None, init=None, name=None, df=NHWC):
     if init is None:
         init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)  # He init
-    return tf.layers.conv2d_transpose(inputs=x, filters=f, kernel_size=ks, strides=s, padding=padding, activation=act,
-                                      kernel_initializer=init, name=name, data_format=df_to_channel(df))
+    return tf.contrib.layers.conv2d_transpose(inputs=x, num_outputs=f, kernel_size=ks, stride=s, padding=padding,
+                                              activation_fn=act,
+                                              weights_initializer=init, scope=name, data_format=df)
 
 
 def layer_norm(x, act=None, scope=None, df=NHWC):
