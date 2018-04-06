@@ -14,6 +14,8 @@ class WGanClsTrainer(object):
         self.model = model
         self.dataset = dataset
         self.cfg = cfg
+        self.lr_d = self.cfg.TRAIN.D_LR
+        self.lr_g = self.cfg.TRAIN.G_LR
 
     def define_summaries(self):
         self.summary_op = tf.summary.merge([
@@ -24,7 +26,6 @@ class WGanClsTrainer(object):
             tf.summary.histogram('z_sample', self.model.z_sample),
 
             tf.summary.scalar('G_loss_wass', -self.model.D_loss_fake),
-            tf.summary.scalar('Gm_loss', self.model.Gm_loss),
             tf.summary.scalar('kl_loss', self.model.G_kl_loss),
             tf.summary.scalar('G_loss', self.model.G_loss),
             # tf.summary.scalar('d_lr', self.model.d_lr),
@@ -34,8 +35,10 @@ class WGanClsTrainer(object):
             tf.summary.scalar('D_loss_fake', self.model.D_loss_fake),
             tf.summary.scalar('real_gp', self.model.real_gp),
             tf.summary.scalar('D_loss', self.model.D_loss),
-            tf.summary.scalar('Dm_loss', self.model.Dm_loss),
+            tf.summary.scalar('reg_loss', self.model.reg_loss),
             tf.summary.scalar('wdist', self.model.wdist),
+            tf.summary.scalar('wdist2', self.model.wdist2),
+            tf.summary.scalar('d_loss_mismatch', self.model.D_loss_mismatch),
         ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
@@ -72,8 +75,11 @@ class WGanClsTrainer(object):
                                                                               wrong_img=True)
             batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
             eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))
+            kiter = idx // 10000
 
             feed_dict = {
+                self.model.learning_rate_d: self.lr_d * (0.95**kiter),
+                self.model.learning_rate_g: self.lr_g * (0.95**kiter),
                 self.model.x: images,
                 self.model.x_mismatch: wrong_images,
                 self.model.cond: embed,
@@ -86,19 +92,13 @@ class WGanClsTrainer(object):
 
             _, err_d = self.sess.run([self.model.D_optim, self.model.D_loss],
                                      feed_dict=feed_dict)
-
-            err_g = None
-            if np.mod(idx, 2) == 0:
-                _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
-                                         feed_dict=feed_dict)
+            _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
+                                     feed_dict=feed_dict)
 
             summary_period = self.cfg.TRAIN.SUMMARY_PERIOD
             if np.mod(idx, summary_period) == 0:
                 summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
                 self.writer.add_summary(summary_str, idx)
-
-                print("Epoch: [%2d] [%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f"
-                      % (epoch, idx, time.time() - start_time, err_d, err_g))
 
             if np.mod(idx, self.cfg.TRAIN.SAMPLE_PERIOD) == 0:
                 try:

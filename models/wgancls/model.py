@@ -34,6 +34,8 @@ class WGanCls(object):
     def build_model(self):
         # Define the input tensor by appending the batch size dimension to the image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
+        self.learning_rate_d = tf.placeholder(tf.float32, shape=None)
+        self.learning_rate_g = tf.placeholder(tf.float32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
         self.x_mismatch = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
         self.cond = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='cond')
@@ -44,12 +46,12 @@ class WGanCls(object):
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
-        self.Dg_logit, self.Dgm_logit = self.discriminator(self.G, self.cond, reuse=False)
-        self.Dx_logit, self.Dxma_logit = self.discriminator(self.x, self.cond, reuse=True)
-        _, self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
+        self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
+        self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
+        self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
-        self.Dx_hat_logit, self.Dxma_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
+        self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, is_training=False)
 
@@ -59,7 +61,7 @@ class WGanCls(object):
     def get_gradient_penalty(self, x, y):
         grad_y = tf.gradients(y, [x])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
-        return tf.reduce_mean(tf.square(tf.maximum(0., slopes - 1.)))
+        return tf.reduce_mean(tf.square(slopes - 1.))
 
     def realism_branch(self, x, f, df=NCHW):
         net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df)
@@ -82,36 +84,29 @@ class WGanCls(object):
 
         self.D_loss_real = tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
+        self.D_loss_mismatch = tf.reduce_mean(self.Dxmi_logit)
         self.wdist = self.D_loss_real - self.D_loss_fake
-        self.Dm_loss = \
-            tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxmi_logit,
-                                                                   labels=tf.zeros_like(self.Dxmi_logit))) \
-            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Dxma_logit,
-                                                                     labels=tf.ones_like(self.Dxma_logit)))
-        self.Gm_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-            logits=self.Dgm_logit,
-            labels=tf.ones_like(self.Dgm_logit)
-        ))
-        self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
+        self.wdist2 = self.D_loss_real - self.D_loss_mismatch
+        self.reg_loss = tf.reduce_mean(tf.square(self.Dxmi_logit))
 
+        self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist + lambda1 * self.real_gp + self.Dm_loss
-        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss + self.Gm_loss
+        self.D_loss = -self.wdist + 10.0 * self.real_gp - self.wdist2
+        self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
         decay = 1
         self.d_lr = self.cfg.TRAIN.D_LR * decay
         self.g_lr = self.cfg.TRAIN.G_LR * decay
 
-        self.D_optim = tf.train.AdamOptimizer(self.d_lr,
+        self.D_optim = tf.train.AdamOptimizer(self.learning_rate_d,
                                               beta1=self.cfg.TRAIN.BETA1,
                                               beta2=self.cfg.TRAIN.BETA2) \
             .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
-
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.G_optim = tf.train.AdamOptimizer(self.g_lr,
+            self.G_optim = tf.train.AdamOptimizer(self.learning_rate_g,
                                                   beta1=self.cfg.TRAIN.BETA1,
                                                   beta2=self.cfg.TRAIN.BETA2)\
                 .minimize(self.G_loss, var_list=self.g_vars)
@@ -172,9 +167,7 @@ class WGanCls(object):
             net_h4_concat = tf.concat([net_h4, net_embed], 1)
 
             net_logits = self.realism_branch(net_h4_concat, self.df_dim * 8)
-            mnet_logits = self.matching_branch(net_h4_concat, self.df_dim * 8)
-
-            return net_logits, mnet_logits
+            return net_logits
 
     def generator(self, z, embed, reuse=False, is_training=True, df=NCHW, cond_noise=True):
         s = self.output_size
