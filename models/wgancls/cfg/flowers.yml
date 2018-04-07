@@ -23,8 +23,8 @@ TRAIN:
   MAX_STEPS: 250000
   BATCH_SIZE: 32 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
-  D_LR: 0.00003 # Learning rate
-  G_LR: 0.00001
+  D_LR: 0.0003 # Learning rate
+  G_LR: 0.0001
   BETA1: 0.0 # Adam beta1
   BETA2: 0.9 # Adam beta2
   SUMMARY_PERIOD: 10
@@ -32,7 +32,7 @@ TRAIN:
   CHECKPOINTS_TO_KEEP: 3
   SAMPLE_PERIOD: 300
   COEFF:
-    KL: 10.0
+    KL: 20.0
     LAMBDA: 100.0
 
 EVAL:

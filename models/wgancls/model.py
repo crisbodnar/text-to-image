@@ -61,20 +61,7 @@ class WGanCls(object):
     def get_gradient_penalty(self, x, y):
         grad_y = tf.gradients(y, [x])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
-        return tf.reduce_mean((slopes - 1.)**2)
-
-    def realism_branch(self, x, f, df=NCHW):
-        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df, act=lrelu_act())
-
-        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=df)
-        return out
-
-    def matching_branch(self, x, f, df=NCHW):
-        net_h4 = conv2d(x, f, ks=(1, 1), s=(1, 1), padding='valid', df=df)
-        net_h4 = layer_norm(net_h4, act=lrelu_act(), df=df)
-
-        out = conv2d(net_h4, 1, ks=(4, 4), s=(4, 4), padding='valid', df=df)
-        return out
+        return tf.reduce_mean(tf.maximum(0.0, slopes - 1.)**2)
 
     def define_losses(self):
         # Define the final losses
@@ -91,7 +78,7 @@ class WGanCls(object):
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist + 20.0 * self.real_gp - self.wdist2
+        self.D_loss = -self.wdist - self.wdist2 + 200.0 * self.real_gp
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
@@ -159,8 +146,11 @@ class WGanCls(object):
             net_embed = tf.tile(net_embed, [1, 1, 4, 4])
             net_h4_concat = tf.concat([net_h4, net_embed], 1)
 
-            net_logits = self.realism_branch(net_h4_concat, self.df_dim * 8)
-            return net_logits
+            net_h5 = conv2d(net_h4_concat, self.df_dim*8, ks=(3, 3), s=(1, 1), padding='same', df=NCHW, act=lrelu)
+            net_h6 = conv2d(net_h5, self.df_dim*8, ks=(1, 1), s=(1, 1), padding='valid', df=NCHW, act=lrelu)
+
+            out = conv2d(net_h6, 1, ks=(4, 4), s=(4, 4), padding='valid', df=NCHW)
+            return out
 
     def generator(self, z, embed, reuse=False, is_training=True, df=NCHW, cond_noise=True):
         s = self.output_size

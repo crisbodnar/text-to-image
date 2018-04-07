@@ -147,3 +147,4 @@ def gn(x, mag):
     noise = noise_mag ** tf.random_normal(x.get_shape())
     return x * noise
 
+
