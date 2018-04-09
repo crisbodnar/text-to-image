@@ -20,10 +20,10 @@ MODEL:
 
 TRAIN:
   FLAG: True
-  MAX_STEPS: 250000
-  BATCH_SIZE: 32 # Size of the training batches
+  MAX_STEPS: 1000000
+  BATCH_SIZE: 64 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
-  D_LR: 0.0003 # Learning rate
+  D_LR: 0.0001 # Learning rate
   G_LR: 0.0001
   BETA1: 0.0 # Adam beta1
   BETA2: 0.9 # Adam beta2

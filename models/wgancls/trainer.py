@@ -92,8 +92,10 @@ class WGanClsTrainer(object):
 
             _, err_d = self.sess.run([self.model.D_optim, self.model.D_loss],
                                      feed_dict=feed_dict)
-            _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
-                                     feed_dict=feed_dict)
+
+            if idx % 5 == 0:
+                _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
+                                         feed_dict=feed_dict)
 
             summary_period = self.cfg.TRAIN.SUMMARY_PERIOD
             if np.mod(idx, summary_period) == 0:

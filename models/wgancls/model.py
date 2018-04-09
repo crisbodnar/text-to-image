@@ -51,7 +51,8 @@ class WGanCls(object):
         self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
-        self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond, reuse=True)
+        self.cond_inp = self.cond
+        self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond_inp, reuse=True)
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, is_training=False)
 
@@ -61,6 +62,11 @@ class WGanCls(object):
     def get_gradient_penalty(self, x, y):
         grad_y = tf.gradients(y, [x])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1, 2, 3]))
+        return tf.reduce_mean(tf.maximum(0.0, slopes - 1.)**2)
+
+    def get_gradient_penalty2(self, x, y):
+        grad_y = tf.gradients(y, [x])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y)))
         return tf.reduce_mean(tf.maximum(0.0, slopes - 1.)**2)
 
     def define_losses(self):
@@ -77,8 +83,9 @@ class WGanCls(object):
 
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
+        self.real_gp2 = self.get_gradient_penalty2(self.cond_inp, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist - self.wdist2 + 200.0 * self.real_gp
+        self.D_loss = -self.wdist - self.wdist2 + 300.0 * (self.real_gp + self.real_gp2)
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
