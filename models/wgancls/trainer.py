@@ -76,7 +76,8 @@ class WGanClsTrainer(object):
                                                                               wrong_img=True)
             batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
             eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))
-            kiter = idx // 10000
+            n_critic = self.cfg.TRAIN.N_CRITIC
+            kiter = (idx // n_critic) // 10000
 
             feed_dict = {
                 self.model.learning_rate_d: self.lr_d * (0.95**kiter),
@@ -94,7 +95,7 @@ class WGanClsTrainer(object):
             _, err_d = self.sess.run([self.model.D_optim, self.model.D_loss],
                                      feed_dict=feed_dict)
 
-            if idx % 1 == 0:
+            if idx % n_critic == 0:
                 _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
                                          feed_dict=feed_dict)
 
