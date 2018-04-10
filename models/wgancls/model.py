@@ -47,11 +47,11 @@ class WGanCls(object):
 
         self.G, self.embed_mean, self.embed_log_sigma = self.generator(self.z, self.cond, reuse=False)
         self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False)
-        self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True)
-        self.Dxmi_logit = self.discriminator(self.x_mismatch, self.cond, reuse=True)
+        self.Dx_logit= self.discriminator(self.x, self.cond, reuse=True)
+        self.Dxmi_logit= self.discriminator(self.x_mismatch, self.cond, reuse=True)
 
         self.x_hat = self.epsilon * self.G + (1. - self.epsilon) * self.x
-        self.cond_inp = self.cond
+        self.cond_inp = self.cond + 0.0
         self.Dx_hat_logit = self.discriminator(self.x_hat, self.cond_inp, reuse=True)
 
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, is_training=False)
@@ -66,7 +66,7 @@ class WGanCls(object):
 
     def get_gradient_penalty2(self, x, y):
         grad_y = tf.gradients(y, [x])[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y)))
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(grad_y), reduction_indices=[1]))
         return tf.reduce_mean(tf.maximum(0.0, slopes - 1.)**2)
 
     def define_losses(self):
@@ -85,13 +85,8 @@ class WGanCls(object):
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
         self.real_gp2 = self.get_gradient_penalty2(self.cond_inp, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist - self.wdist2 + 300.0 * (self.real_gp + self.real_gp2)
+        self.D_loss = -self.wdist - self.wdist2 + 150.0 * (self.real_gp + self.real_gp2)
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
-
-        # decay = tf.maximum(0., 1 - tf.divide(tf.cast(self.iter, tf.float32), self.cfg.TRAIN.MAX_STEPS))
-        decay = 1
-        self.d_lr = self.cfg.TRAIN.D_LR * decay
-        self.g_lr = self.cfg.TRAIN.G_LR * decay
 
         self.D_optim = tf.train.AdamOptimizer(self.learning_rate_d,
                                               beta1=self.cfg.TRAIN.BETA1,
