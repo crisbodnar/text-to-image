@@ -66,13 +66,13 @@ def write_caption(img, caption, font_size, vert_pos, split=50):
     idx = caption.find(' ', split)
     if idx == -1:
         # Write the caption on one row
-        d.text((2, vert_pos), caption, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), caption, font=fnt, fill=(0, 0, 0, 0))
     else:
         # Write the caption on two rows
         cap1 = caption[:idx]
         cap2 = caption[idx + 1:]
-        d.text((2, vert_pos), cap1, font=fnt, fill=(255, 255, 255, 255))
-        d.text((2, vert_pos + font_size), cap2, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), cap1, font=fnt, fill=(0, 0, 0, 0))
+        d.text((2, vert_pos + font_size), cap2, font=fnt, fill=(0, 0, 0, 0))
     return np.array(img_txt)
 
 
@@ -98,7 +98,7 @@ def prepare_img_for_captioning(img_batch, bottom, rows=None):
         rows = batch_size // n
 
     # Leave top row empty for the caption text
-    text_row = np.tile(np.zeros(img_shape), reps=(1, n, 1))
+    text_row = np.tile(np.ones(img_shape) * 255, reps=(1, n, 1))
     top_row = text_row
 
     # Fill in the super image row by row
