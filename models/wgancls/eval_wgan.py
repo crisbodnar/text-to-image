@@ -84,7 +84,7 @@ class WGanClsEval(object):
 
         z = tf.placeholder(tf.float32, [self.bs, self.model.z_dim], name='z')
         cond = tf.placeholder(tf.float32, [self.bs] + [self.model.embed_dim], name='cond')
-        eval_gen, _, _ = self.model.generator(z, cond, is_training=False, df='NHWC')
+        eval_gen, _, _ = self.model.generator(z, cond, is_training=False)
 
         saver = tf.train.Saver(tf.global_variables('g_net'))
         could_load, _ = load(saver, self.sess, self.cfg.CHECKPOINT_DIR)
