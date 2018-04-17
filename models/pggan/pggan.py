@@ -60,8 +60,6 @@ class PGGAN(object):
         self.cond_sample = tf.placeholder(tf.float32, [self.sample_num] + [self.embed_dim], name='cond_sample')
 
         self.G, self.mean, self.log_sigma = self.generator(self.z, self.cond, stages=self.stage, t=self.trans)
-        self.mean_lr, self.log_sigma_lr = self.mean[0], self.log_sigma[0]
-        self.mean_hr, self.log_sigma_hr = self.mean[1], self.log_sigma[1]
 
         self.Dg_logit = self.discriminator(self.G, self.cond, reuse=False, stages=self.stage, t=self.trans)
         self.Dx_logit = self.discriminator(self.x, self.cond, reuse=True, stages=self.stage, t=self.trans)
@@ -75,9 +73,6 @@ class PGGAN(object):
         self.sampler, _, _ = self.generator(self.z_sample, self.cond_sample, reuse=True, stages=self.stage,
                                             t=self.trans)
 
-        self.dt_assign = tf.assign(self.dt,
-                                   0.1 * tf.maximum(tf.reduce_mean(self.Dx_logit), tf.reduce_mean(self.Dxma_logit))
-                                   + tf.multiply(0.9, self.dt))
         self.alpha_assign = tf.assign(self.alpha_tra,
                                       (tf.cast(tf.cast(self.iter, tf.float32) / self.steps, tf.float32)))
 
@@ -111,10 +106,10 @@ class PGGAN(object):
         self.D_loss = -self.wdist - self.wdist2 + 150.0 * (self.real_gp + self.real_gp2)
         self.G_loss = -self.D_loss_fake + 10.0 * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
-        self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.0, beta2=0.99)
+        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.99)
+        self.G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.99)
 
-        with tf.control_dependencies([self.alpha_assign, self.dt_assign]):
+        with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)
         self.G_optim = self.G_optimizer.minimize(self.G_loss, var_list=self.g_vars)
 
@@ -158,8 +153,6 @@ class PGGAN(object):
             tf.summary.scalar('d_loss_mismatch', self.D_loss_mismatch),
             tf.summary.scalar('real_gp2', self.real_gp2),
         ]
-        if self.stage >= 6:
-            summaries.append(tf.summary.scalar('G_kl_loss_hr', self.G_kl_loss_hr))
         self.summary_op = tf.summary.merge(summaries)
 
     # do train
@@ -267,8 +260,8 @@ class PGGAN(object):
 
             for i in range(stages - 1, 0, -1):
                 with tf.variable_scope(self.get_conv_scope_name(i), reuse=reuse):
-                    x = conv2d(x, f=self.get_nf(i), ks=(3, 3), s=(1, 1), act=lrelu_act())
-                    x = conv2d(x, f=self.get_nf(i-1), ks=(3, 3), s=(1, 1), act=lrelu_act())
+                    x = conv2d(x, f=self.get_dnf(i), ks=(3, 3), s=(1, 1), act=lrelu_act())
+                    x = conv2d(x, f=self.get_dnf(i-1), ks=(3, 3), s=(1, 1), act=lrelu_act())
                     x = pool(x, 2)
                 if i == stages - 1 and t:
                     x = tf.multiply(alpha_trans, x) + tf.multiply(tf.subtract(1., alpha_trans), x_iden)
@@ -277,8 +270,8 @@ class PGGAN(object):
                 # Real/False branch
                 cond_compress = fc(cond, units=128, act=lrelu_act())
                 concat = self.concat_cond4(x, cond_compress)
-                x_b1 = conv2d(concat, f=self.get_nf(0), ks=(3, 3), s=(1, 1), act=lrelu_act())
-                x_b1 = conv2d(x_b1, f=self.get_nf(0), ks=(4, 4), s=(1, 1), padding='VALID', act=lrelu_act())
+                x_b1 = conv2d(concat, f=self.get_dnf(0), ks=(3, 3), s=(1, 1), act=lrelu_act())
+                x_b1 = conv2d(x_b1, f=self.get_dnf(0), ks=(4, 4), s=(1, 1), padding='VALID', act=lrelu_act())
                 output_b1 = fc(x_b1, units=1)
 
             return output_b1
@@ -343,12 +336,15 @@ class PGGAN(object):
     def get_conv_scope_name(self, stage):
         return 'conv_stage_%d' % stage
 
+    def get_dnf(self, stage):
+        return min(1024 // (2 ** stage) * 2, 512)
+
     def get_nf(self, stage):
         return min(1024 // (2 ** stage) * 4, 512)
 
     def from_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
-            return conv2d(x, f=self.get_nf(stage), ks=(1, 1), s=(1, 1), act=lrelu_act())
+            return conv2d(x, f=self.get_dnf(stage), ks=(1, 1), s=(1, 1), act=lrelu_act())
 
     def generate_conditionals(self, embeddings, units=128):
         """Takes the embeddings, compresses them and builds the statistics for a multivariate normal distribution"""
@@ -371,7 +367,8 @@ class PGGAN(object):
     def to_rgb(self, x, stage):
         with tf.variable_scope(self.get_rgb_name(stage)):
             x = conv2d(x, f=9, ks=(2, 2), s=(1, 1), act=tf.nn.relu)
-            return conv2d(x, f=3, ks=(1, 1), s=(1, 1))
+            x = conv2d(x, f=3, ks=(1, 1), s=(1, 1))
+            return x
 
     def get_adam_vars(self, opt, vars_to_train):
         opt_vars = [opt.get_slot(var, name) for name in opt.get_slot_names()

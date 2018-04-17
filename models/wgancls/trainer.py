@@ -40,6 +40,8 @@ class WGanClsTrainer(object):
             tf.summary.scalar('wdist2', self.model.wdist2),
             tf.summary.scalar('d_loss_mismatch', self.model.D_loss_mismatch),
             tf.summary.scalar('real_gp2', self.model.real_gp2),
+            tf.summary.scalar('kt', self.model.kt),
+            tf.summary.scalar('balance_loss', self.model.balance_loss),
         ])
 
         self.writer = tf.summary.FileWriter(self.cfg.LOGS_DIR, self.sess.graph)
@@ -92,8 +94,8 @@ class WGanClsTrainer(object):
                 self.model.iter: idx,
             }
 
-            _, err_d = self.sess.run([self.model.D_optim, self.model.D_loss],
-                                     feed_dict=feed_dict)
+            _, _, err_d = self.sess.run([self.model.D_optim, self.model.kt_optim, self.model.D_loss],
+                                         feed_dict=feed_dict)
 
             if idx % n_critic == 0:
                 _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],

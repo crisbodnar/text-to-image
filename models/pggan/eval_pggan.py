@@ -26,11 +26,11 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    batch_size = 8
+    batch_size = 16
     scale_factor = 1
     sample_size = 128
     stage = 7
-    incep_batch_size = 8
+    incep_batch_size = batch_size
     incep_checkpoint_dir = './checkpoints/Inception/flowers/'
 
     pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
