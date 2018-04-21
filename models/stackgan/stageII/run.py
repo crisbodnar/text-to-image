@@ -12,10 +12,10 @@ from preprocess.dataset import TextDataset
 import tensorflow as tf
 
 flags = tf.app.flags
-# flags.DEFINE_string('cfg_stage_I', './models/stackgan/stageI/cfg/flowers.yml',
+#flags.DEFINE_string('cfg_stage_I', './models/stackgan/stageI/cfg/flowers.yml',
 #                    'Relative path to the config of the model [./models/stackgan/stageI/cfg/flowers.yml]')
-# flags.DEFINE_string('cfg_stage_II', './models/stackgan/stageII/cfg/flowers.yml',
-#                     'Relative path to the config of the model [./models/stackgan/stageII/cfg/flowers.yml]')
+#flags.DEFINE_string('cfg_stage_II', './models/stackgan/stageII/cfg/flowers.yml',
+#                    'Relative path to the config of the model [./models/stackgan/stageII/cfg/flowers.yml]')
 flags.DEFINE_string('cfg_stage_I', './models/stackgan/stageI/cfg/birds.yml',
                     'Relative path to the config of the model [./models/stackgan/stageI/cfg/birds.yml]')
 flags.DEFINE_string('cfg_stage_II', './models/stackgan/stageII/cfg/birds.yml',

@@ -34,7 +34,7 @@ TRAIN:
     KL: 2.0
 
 EVAL:
-  FLAG: False
+  FLAG: True
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64
