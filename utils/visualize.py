@@ -66,14 +66,21 @@ def write_caption(img, caption, font_size, vert_pos, split=50):
     idx = caption.find(' ', split)
     if idx == -1:
         # Write the caption on one row
-        d.text((2, vert_pos), caption, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), caption, font=fnt, fill=(0, 0, 0, 0))
     else:
         # Write the caption on two rows
         cap1 = caption[:idx]
         cap2 = caption[idx + 1:]
-        d.text((2, vert_pos), cap1, font=fnt, fill=(255, 255, 255, 255))
-        d.text((2, vert_pos + font_size), cap2, font=fnt, fill=(255, 255, 255, 255))
+        d.text((2, vert_pos), cap1, font=fnt, fill=(0, 0, 0, 0))
+        d.text((2, vert_pos + font_size), cap2, font=fnt, fill=(0, 0, 0, 0))
     return np.array(img_txt)
+
+
+def preporcess_caption(cap: str):
+    cap = cap[:1].upper() + cap[1:]
+    if cap[-1] != '.':
+        cap += '.'
+    return cap
 
 
 def save_cap_batch(img_batch, caption, path, rows=None, split=50):
@@ -81,6 +88,7 @@ def save_cap_batch(img_batch, caption, path, rows=None, split=50):
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=False, rows=rows)
+    caption = preporcess_caption(caption)
 
     super_img = Image.fromarray(write_caption(super_img, caption, font_size, 10, split=split))
     if not os.path.exists(os.path.dirname(path)):
@@ -98,7 +106,7 @@ def prepare_img_for_captioning(img_batch, bottom, rows=None):
         rows = batch_size // n
 
     # Leave top row empty for the caption text
-    text_row = np.tile(np.zeros(img_shape), reps=(1, n, 1))
+    text_row = np.tile(np.ones(img_shape) * 255, reps=(1, n, 1))
     top_row = text_row
 
     # Fill in the super image row by row
@@ -125,6 +133,8 @@ def save_interp_cap_batch(img_batch, cap1, cap2, path, rows=None):
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=True, rows=rows)
+    cap1 = preporcess_caption(cap1)
+    cap2 = preporcess_caption(cap2)
 
     super_img = write_caption(super_img, cap1, font_size, 10)
     super_img = write_caption(super_img, cap2, font_size, super_img.shape[0] - img_shape[0] + 10)
