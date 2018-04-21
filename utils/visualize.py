@@ -76,11 +76,19 @@ def write_caption(img, caption, font_size, vert_pos, split=50):
     return np.array(img_txt)
 
 
+def preporcess_caption(cap: str):
+    cap = cap[:1].upper() + cap[1:]
+    if cap[-1] != '.':
+        cap += '.'
+    return cap
+
+
 def save_cap_batch(img_batch, caption, path, rows=None, split=50):
     """Creates a super image of generated images with the caption of the images written on a top blank row."""
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=False, rows=rows)
+    caption = preporcess_caption(caption)
 
     super_img = Image.fromarray(write_caption(super_img, caption, font_size, 10, split=split))
     if not os.path.exists(os.path.dirname(path)):
@@ -125,6 +133,8 @@ def save_interp_cap_batch(img_batch, cap1, cap2, path, rows=None):
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=True, rows=rows)
+    cap1 = preporcess_caption(cap1)
+    cap2 = preporcess_caption(cap2)
 
     super_img = write_caption(super_img, cap1, font_size, 10)
     super_img = write_caption(super_img, cap2, font_size, super_img.shape[0] - img_shape[0] + 10)
