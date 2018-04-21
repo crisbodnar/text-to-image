@@ -29,7 +29,7 @@ class GanClsVisualizer(object):
             raise LookupError('Could not load any checkpoints')
 
         dataset_pos = None
-        for idx in range(6):
+        for idx in range(20):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
@@ -56,9 +56,9 @@ class GanClsVisualizer(object):
                                   '{}/{}_visual/cond_interp/cond_interp{}.png'.format(self.samples_dir,
                                                                                       self.dataset.name,
                                                                                       idx))
-            make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(self.samples_dir,
-                                                                                       self.dataset.name,
-                                                                                       idx), duration=4)
+            # make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(self.samples_dir,
+            #                                                                            self.dataset.name,
+            #                                                                            idx), duration=4)
 
             # Generate captioned image
             # ---------------------------------------------------------------------------------------------------------

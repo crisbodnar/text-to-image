@@ -110,10 +110,12 @@ class ConditionalGanTrainer(object):
             print(" [!] Load failed...")
 
         initialize_uninitialized(self.sess)
+        
+        # Updates per epoch are given by the training data size / batch size
+        updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+        epoch_start = counter // updates_per_epoch
 
-        for epoch in range(self.cfg.TRAIN.EPOCH):
-            # Updates per epoch are given by the training data size / batch size
-            updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
+        for epoch in range(epoch_start, self.cfg.TRAIN.EPOCH):
             cen_epoch = epoch // 100
 
             for idx in range(0, updates_per_epoch):
