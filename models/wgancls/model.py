@@ -74,18 +74,21 @@ class WGanCls(object):
         kl_coeff = self.cfg.TRAIN.COEFF.KL
         lambda1 = self.cfg.TRAIN.COEFF.LAMBDA
 
+        self.kt = tf.Variable(0.7, trainable=True, name='kt')
+
         self.D_loss_real = tf.reduce_mean(self.Dx_logit)
         self.D_loss_fake = tf.reduce_mean(self.Dg_logit)
         self.D_loss_mismatch = tf.reduce_mean(self.Dxmi_logit)
         self.wdist = self.D_loss_real - self.D_loss_fake
         self.wdist2 = self.D_loss_real - self.D_loss_mismatch
         self.reg_loss = tf.reduce_mean(tf.square(self.Dxmi_logit))
+        self.balance_loss = tf.reduce_mean(tf.square(self.kt * self.wdist2 - self.wdist))
 
         self.G_kl_loss = self.kl_std_normal_loss(self.embed_mean, self.embed_log_sigma)
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
         self.real_gp2 = self.get_gradient_penalty2(self.cond_inp, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist - self.wdist2 + 150.0 * (self.real_gp + self.real_gp2)
+        self.D_loss = -self.wdist - self.kt * self.wdist2 + 150.0 * (self.real_gp + self.real_gp2)
         self.G_loss = -self.D_loss_fake + kl_coeff * self.G_kl_loss
 
         self.D_optim = tf.train.AdamOptimizer(self.learning_rate_d,
@@ -93,6 +96,9 @@ class WGanCls(object):
                                               beta2=self.cfg.TRAIN.BETA2) \
             .minimize(self.D_loss, var_list=self.d_vars, global_step=self.global_step)
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+        self.kt_optim = tf.train.GradientDescentOptimizer(0.001).minimize(self.balance_loss, var_list=[self.kt])
+
         with tf.control_dependencies(update_ops):
             self.G_optim = tf.train.AdamOptimizer(self.learning_rate_g,
                                                   beta1=self.cfg.TRAIN.BETA1,
