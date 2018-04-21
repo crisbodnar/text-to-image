@@ -12,7 +12,7 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags.DEFINE_string('cfg', './models/stackgan/stageI/cfg/flowers.yml',
-                   'Relative path to the config of the model [./models/stackgan/stageI/cfg/flowers.yml]')
+                  'Relative path to the config of the model [./models/stackgan/stageI/cfg/flowers.yml]')
 # flags.DEFINE_string('cfg', './models/stackgan/stageI/cfg/birds.yml',
 #                     'Relative path to the config of the model [./models/stackgan/stageI/cfg/birds.yml]')
 FLAGS = flags.FLAGS

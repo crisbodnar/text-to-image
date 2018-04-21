@@ -38,8 +38,8 @@ class StageIIVisualizer(object):
             print(" [!] Load failed...")
             raise LookupError('Could not load any checkpoints for stage II')
 
-        dataset_pos = None
-        for idx in range(3):
+        dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
+        for idx in range(0):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
@@ -65,9 +65,9 @@ class StageIIVisualizer(object):
                                   '{}/{}_visual/cond_interp/cond_interp{}.png'.format(self.samples_dir,
                                                                                       self.dataset.name,
                                                                                       idx))
-            make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(self.samples_dir,
-                                                                                       self.dataset.name,
-                                                                                       idx), duration=4)
+            # make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(self.samples_dir,
+            #                                                                            self.dataset.name,
+            #                                                                            idx), duration=4)
 
             # Generate captioned image
             # ---------------------------------------------------------------------------------------------------------
@@ -88,6 +88,18 @@ class StageIIVisualizer(object):
             text = "Stage I and Stage II"
             save_cap_batch(samples, text, '{}/{}_visual/stages/stage{}.png'.format(self.samples_dir,
                                                                                    self.dataset.name, idx))
+
+        for idx, special_pos in enumerate([1126, 908, 398]):
+            print(special_pos)
+            # Generate specific image
+            # ---------------------------------------------------------------------------------------------------------
+            _, conditions, _, captions = self.dataset.test.next_batch_test(1, special_pos, 1)
+            conditions = np.squeeze(conditions, axis=0)
+            caption = captions[0][0]
+            samples = gen_captioned_img(self.sess, gen, conditions, self.model.z_dim, self.model.batch_size)
+
+            save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(self.samples_dir,
+                                                                                         self.dataset.name, idx))
 
         # Generate some images and their closest neighbours
         # ---------------------------------------------------------------------------------------------------------

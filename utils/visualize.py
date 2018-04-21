@@ -237,7 +237,7 @@ def gen_multiple_stage_img(sess, gen_ops, cond, z_dim, batch_size, size=128):
         })
         samples = samples[:8]
         samples = (samples + 1.0) * 127.5
-        samples = resize_imgs(samples, (size, size))
+        samples = resize_imgs(samples, (size, size), interp='nearest')
         samples = np.array(samples) / 127.5 - 1.0
         imgs.extend(samples)
 
