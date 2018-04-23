@@ -10,8 +10,10 @@ from utils.saver import load
 import os
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
-                    'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+                    'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
@@ -26,12 +28,12 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    batch_size = 16
+    batch_size = 64
     scale_factor = 1
     sample_size = 128
-    stage = 7
+    stage = 4
     incep_batch_size = batch_size
-    incep_checkpoint_dir = './checkpoints/Inception/flowers/'
+    incep_checkpoint_dir = cfg.EVAL.INCEP_CHECKPOINT_DIR
 
     pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
     samples_dir = cfg.SAMPLE_DIR
@@ -61,7 +63,7 @@ if __name__ == "__main__":
         if not could_load:
             raise RuntimeError('Could not load stage %d' % stage)
 
-        logits, _ = load_inception_inference(sess, 20, incep_batch_size, incep_checkpoint_dir)
+        logits, _ = load_inception_inference(sess, cfg.EVAL.NUM_CLASSES, incep_batch_size, incep_checkpoint_dir)
         pred_op = tf.nn.softmax(logits)
 
         size = 5000

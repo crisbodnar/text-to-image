@@ -17,11 +17,12 @@ class StageIEval(object):
         self.model = model
         self.dataset = dataset
         self.cfg = cfg
+        self.classes = self.cfg.EVAL.NUM_CLASSES
         self.bs = self.cfg.EVAL.SAMPLE_SIZE
 
     def evaluate_fid(self):
         incep_batch_size = self.cfg.EVAL.INCEP_BATCH_SIZE
-        _, layers = load_inception_inference(self.sess, 20, incep_batch_size,
+        _, layers = load_inception_inference(self.sess, self.classes, incep_batch_size,
                                              self.cfg.EVAL.INCEP_CHECKPOINT_DIR)
         pool3 = layers['PreLogits']
         act_op = tf.reshape(pool3, shape=[incep_batch_size, -1])
@@ -78,7 +79,7 @@ class StageIEval(object):
 
     def evaluate_inception(self):
         incep_batch_size = self.cfg.EVAL.INCEP_BATCH_SIZE
-        logits, _ = load_inception_inference(self.sess, 20, incep_batch_size,
+        logits, _ = load_inception_inference(self.sess, self.classes, incep_batch_size,
                                              self.cfg.EVAL.INCEP_CHECKPOINT_DIR)
         pred_op = tf.nn.softmax(logits)
 

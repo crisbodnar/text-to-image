@@ -95,7 +95,6 @@ class InceptionTrainer(object):
             for label in labels:
                 new_labels.append(self.class_to_idx[label])
 
-            print(new_labels)
             assert(np.min(images) >= -1.)
             assert(np.max(images) <= 1.)
             assert(np.min(new_labels) >= 0)
@@ -115,11 +114,6 @@ class InceptionTrainer(object):
 
                 print("Epoch: [%2d] [%4d] time: %4.4f, loss: %.8f" % (epoch, idx, time.time() - start_time, err))
 
-            if np.mod(idx, 1000) == 0:
-                images = load_inception_data('./data/test')
-                mean, std = get_inception_score(images, self.sess, batch_size, 10, self.pred, verbose=True)
-                print('mean:', "%.2f" % mean, 'std:', "%.2f" % std)
-
-            if np.mod(idx, 100) == 0:
+            if np.mod(idx, 200) == 0:
                 save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, idx)
             sys.stdout.flush()
