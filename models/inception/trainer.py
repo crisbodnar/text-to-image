@@ -49,7 +49,7 @@ class InceptionTrainer(object):
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            opt = tf.train.RMSPropOptimizer(learning_rate=0.0001)
+            opt = tf.train.RMSPropOptimizer(learning_rate=0.00005)
             self.opt_step = opt.minimize(self.loss, var_list=self.vars_to_train)
 
         self.opt_vars = [opt.get_slot(var, name) for name in opt.get_slot_names() for var in self.vars_to_train
@@ -95,7 +95,6 @@ class InceptionTrainer(object):
             for label in labels:
                 new_labels.append(self.class_to_idx[label])
 
-            print(new_labels)
             assert(np.min(images) >= -1.)
             assert(np.max(images) <= 1.)
             assert(np.min(new_labels) >= 0)
@@ -114,11 +113,6 @@ class InceptionTrainer(object):
                 self.writer.add_summary(summary_str, idx)
 
                 print("Epoch: [%2d] [%4d] time: %4.4f, loss: %.8f" % (epoch, idx, time.time() - start_time, err))
-
-            if np.mod(idx, 1000) == 0:
-                images = load_inception_data('./data/test')
-                mean, std = get_inception_score(images, self.sess, batch_size, 10, self.pred, verbose=True)
-                print('mean:', "%.2f" % mean, 'std:', "%.2f" % std)
 
             if np.mod(idx, 100) == 0:
                 save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, idx)
