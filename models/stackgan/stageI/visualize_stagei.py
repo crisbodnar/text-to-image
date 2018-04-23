@@ -29,8 +29,8 @@ class StageIVisualizer(object):
             print(" [!] Load failed...")
             raise LookupError('Could not load any checkpoints')
 
-        dataset_pos = None
-        for idx in range(6):
+        dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
+        for idx in range(0):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
@@ -69,6 +69,16 @@ class StageIVisualizer(object):
 
             save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(self.samples_dir,
                                                                                  self.dataset.name, idx))
+        for idx, special_pos in enumerate([1126, 908, 398]):
+            # Generate specific image
+            # ---------------------------------------------------------------------------------------------------------
+            _, conditions, _, captions = self.dataset.test.next_batch_test(1, special_pos, 1)
+            conditions = np.squeeze(conditions, axis=0)
+            caption = captions[0][0]
+            samples = gen_captioned_img(self.sess, gen, conditions, self.model.z_dim, self.model.batch_size)
+
+            save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(self.samples_dir,
+                                                                                         self.dataset.name, idx))
 
         # Generate some images and their closest neighbours
         # ---------------------------------------------------------------------------------------------------------

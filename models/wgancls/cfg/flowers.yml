@@ -21,7 +21,7 @@ MODEL:
 TRAIN:
   FLAG: False
   MAX_STEPS: 200000
-  BATCH_SIZE: 64 # Size of the training batches
+  BATCH_SIZE: 8 # Size of the training batches
   SAMPLE_NUM: 64 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!
   D_LR: 0.0001 # Learning rate
   G_LR: 0.0001
@@ -37,7 +37,7 @@ TRAIN:
     LAMBDA: 100.0
 
 EVAL:
-  FLAG: True
+  FLAG: False
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/flowers/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64

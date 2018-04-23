@@ -24,9 +24,9 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    batch_size = 16
-    stage = 7
-    z_dim = 512
+    batch_size = 8
+    stage = 5
+    z_dim = 128
 
     pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
     samples_dir = cfg.SAMPLE_DIR
@@ -55,7 +55,8 @@ if __name__ == "__main__":
         if not could_load:
             raise RuntimeError('Could not load stage %d' % stage)
 
-        for idx in range(10):
+        dataset_pos = np.random.randint(0, dataset.test.num_examples)
+        for idx in range(0):
             dataset_pos = np.random.randint(0, dataset.test.num_examples)
             # Interpolation in z space:
             # ---------------------------------------------------------------------------------------------------------
@@ -92,16 +93,29 @@ if __name__ == "__main__":
             save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(samples_dir,
                                                                                  dataset.name, idx))
 
-        # # Generate some images and their closest neighbours
-        # # ---------------------------------------------------------------------------------------------------------
-        # dataset_pos = np.random.randint(0, dataset.test.num_examples)
-        # _, conditions, _, _ = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
-        # conditions = np.squeeze(conditions)
-        # samples, neighbours = gen_closest_neighbour_img(sess, gen_op, conditions, z_dim,
-        #                                                 batch_size, dataset)
-        # batch = np.concatenate([samples, neighbours])
-        # text = 'Generated images and their closest neighbours'
-        # save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(samples_dir, dataset.name))
+        for idx, special_pos in enumerate([1126, 908, 398]):
+            print(special_pos)
+            # Generate specific image
+            # ---------------------------------------------------------------------------------------------------------
+            _, conditions, _, captions = dataset.test.next_batch_test(1, special_pos, 1)
+            conditions = np.squeeze(conditions, axis=0)
+            caption = captions[0][0]
+            samples = gen_captioned_img(sess, gen_op, conditions, z_dim, batch_size)
+            samples = np.clip(samples, -1., 1.)
+
+            save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(samples_dir,
+                                                                                         dataset.name, idx))
+
+        # Generate some images and their closest neighbours
+        # ---------------------------------------------------------------------------------------------------------
+        dataset_pos = np.random.randint(0, dataset.test.num_examples)
+        _, conditions, _, _ = dataset.test.next_batch_test(batch_size, dataset_pos, 1)
+        conditions = np.squeeze(conditions)
+        samples, neighbours = gen_closest_neighbour_img(sess, gen_op, conditions, z_dim,
+                                                        batch_size, dataset)
+        batch = np.concatenate([samples, neighbours])
+        text = 'Generated images and their closest neighbours'
+        save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(samples_dir, dataset.name))
         #
 
 

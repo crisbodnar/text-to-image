@@ -19,8 +19,8 @@ if __name__ == "__main__":
 
     cfg = config_from_yaml(FLAGS.cfg)
 
-    batch_size = 16
-    z_dim = 512
+    batch_size = 32
+    z_dim = 128
 
     datadir = cfg.DATASET_DIR
     dataset = TextDataset(datadir, 64)
