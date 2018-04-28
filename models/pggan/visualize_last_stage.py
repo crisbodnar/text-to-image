@@ -27,7 +27,7 @@ if __name__ == "__main__":
     dataset.train = dataset.get_data(filename_train)
 
     batch_size = 8
-    stage = 5
+    stage = 7
     z_dim = 128
 
     pggan_checkpoint_dir_read = os.path.join(cfg.CHECKPOINT_DIR, 'stage%d/' % stage)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             raise RuntimeError('Could not load stage %d' % stage)
 
         dataset_pos = np.random.randint(0, dataset.test.num_examples)
-        for idx in range(0):
+        for idx in range(30):
             dataset_pos = np.random.randint(0, dataset.test.num_examples)
             dataset_pos2 = np.random.randint(0, dataset.test.num_examples)
 

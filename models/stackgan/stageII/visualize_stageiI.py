@@ -101,16 +101,16 @@ class StageIIVisualizer(object):
             save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(self.samples_dir,
                                                                                          self.dataset.name, idx))
 
-        # Generate some images and their closest neighbours
-        # ---------------------------------------------------------------------------------------------------------
-        _, conditions, _, _ = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
-        conditions = np.squeeze(conditions)
-        samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
-                                                        self.model.batch_size, self.dataset)
-        batch = np.concatenate([samples, neighbours])
-        text = 'Generated images and their closest neighbours'
-        save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
-                                                                            self.dataset.name))
+        # # Generate some images and their closest neighbours
+        # # ---------------------------------------------------------------------------------------------------------
+        # _, conditions, _, _ = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
+        # conditions = np.squeeze(conditions)
+        # samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
+        #                                                 self.model.batch_size, self.dataset)
+        # batch = np.concatenate([samples, neighbours])
+        # text = 'Generated images and their closest neighbours'
+        # save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
+        #                                                                     self.dataset.name))
 
 
 

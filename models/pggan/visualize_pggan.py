@@ -7,8 +7,10 @@ from utils.saver import load
 import os
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
-                    'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+                    'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
