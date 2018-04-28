@@ -6,8 +6,6 @@ from preprocess.dataset import TextDataset
 import numpy as np
 import time
 import sys
-from evaluation.inception_score import get_inception_score
-from utils.utils import load_inception_data
 
 
 class InceptionTrainer(object):
@@ -39,7 +37,7 @@ class InceptionTrainer(object):
                                                                                   labels=self.labels))
 
         self.vars_to_train = tf.trainable_variables('InceptionV3/Logits') \
-            + tf.trainable_variables('InceptionV3/AuxLogits')
+            + tf.trainable_variables('InceptionV3/Mixed_7c')
 
         self.all_vars = tf.global_variables('InceptionV3')
         self.not_to_restore = tf.global_variables('InceptionV3/Logits') \
@@ -114,6 +112,6 @@ class InceptionTrainer(object):
 
                 print("Epoch: [%2d] [%4d] time: %4.4f, loss: %.8f" % (epoch, idx, time.time() - start_time, err))
 
-            if np.mod(idx, 100) == 0:
+            if np.mod(idx, 200) == 0:
                 save(self.saver, self.sess, self.cfg.CHECKPOINT_DIR, idx)
             sys.stdout.flush()

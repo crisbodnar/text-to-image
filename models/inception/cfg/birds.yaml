@@ -9,8 +9,8 @@ MODEL:
   CLASSES: 50
 
 TRAIN:
-  MAX_STEPS: 30000
-  RESTORE_PRETRAIN: False
+  MAX_STEPS: 60000
+  RESTORE_PRETRAIN: True
   PRETRAINED_CHECKPOINT_DIR: './checkpoints/Inception/imagenet/inception_v3.ckpt'
   FLAG: True
   BATCH_SIZE: 64 # Size of the training batches

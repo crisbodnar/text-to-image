@@ -103,11 +103,11 @@ class PGGAN(object):
         self.real_gp = self.get_gradient_penalty(self.x_hat, self.Dx_hat_logit)
         self.real_gp2 = self.get_gradient_penalty2(self.cond_inp, self.Dx_hat_logit)
 
-        self.D_loss = -self.wdist - self.wdist2 + 150.0 * (self.real_gp + self.real_gp2)
-        self.G_loss = -self.D_loss_fake + 3.0 * self.G_kl_loss
+        self.D_loss = -self.wdist - self.wdist2 + 200.0 * (self.real_gp + self.real_gp2)
+        self.G_loss = -self.D_loss_fake + 5.0 * self.G_kl_loss
 
-        self.D_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.0, beta2=0.99)
-        self.G_optimizer = tf.train.AdamOptimizer(0.00005, beta1=0.0, beta2=0.99)
+        self.D_optimizer = tf.train.AdamOptimizer(0.000002, beta1=0.0, beta2=0.99)
+        self.G_optimizer = tf.train.AdamOptimizer(0.000002, beta1=0.0, beta2=0.99)
 
         with tf.control_dependencies([self.alpha_assign]):
             self.D_optim = self.D_optimizer.minimize(self.D_loss, var_list=self.d_vars)

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     stage = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
     prev_stage = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
 
-    for i in range(5, len(stage)):
+    for i in range(12, len(stage)):
 
         t = False if (i % 2 == 0) else True
 

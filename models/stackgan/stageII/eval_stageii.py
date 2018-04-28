@@ -74,7 +74,7 @@ class StageIIEval(object):
 
     def evaluate_inception(self):
         incep_batch_size = self.cfg.EVAL.INCEP_BATCH_SIZE
-        logits, _ = load_inception_inference(self.sess, 20, incep_batch_size,
+        logits, _ = load_inception_inference(self.sess, self.cfg.EVAL.NUM_CLASSES, incep_batch_size,
                                              self.cfg.EVAL.INCEP_CHECKPOINT_DIR)
         pred_op = tf.nn.softmax(logits)
 

@@ -42,7 +42,7 @@ EVAL:
   INCEP_CHECKPOINT_DIR: ./checkpoints/Inception/birds/
   SAMPLE_SIZE: 1000
   INCEP_BATCH_SIZE: 64
-  NUM_CLASSES: 20
+  NUM_CLASSES: 50
   SIZE: 50000
   ACT_STAT_PATH: ./data/fid/birds/stats.npz
   R_IMG_PATH: ./data/birds/jpg
