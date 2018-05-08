@@ -41,6 +41,7 @@ class StageIIVisualizer(object):
         dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
         for idx in range(0):
             dataset_pos = np.random.randint(0, self.dataset.test.num_examples)
+            dataset_pos2 = np.random.randint(0, self.dataset.test.num_examples)
 
             # Interpolation in z space:
             # ---------------------------------------------------------------------------------------------------------
@@ -55,10 +56,12 @@ class StageIIVisualizer(object):
             # Interpolation in embedding space:
             # ---------------------------------------------------------------------------------------------------------
 
-            _, cond, _, caps = self.dataset.test.next_batch_test(2, dataset_pos, 1)
-            cond = np.squeeze(cond, axis=0)
-            cond1, cond2 = cond[0], cond[1]
-            cap1, cap2 = caps[0][0], caps[1][0]
+            _, cond1, _, caps1 = self.dataset.test.next_batch_test(1, dataset_pos, 1)
+            _, cond2, _, caps2 = self.dataset.test.next_batch_test(1, dataset_pos2, 1)
+
+            cond1 = np.squeeze(cond1, axis=0)
+            cond2 = np.squeeze(cond2, axis=0)
+            cap1, cap2 = caps1[0][0], caps2[0][0]
 
             samples = gen_cond_interp_img(self.sess, gen_no_noise, cond1, cond2, self.model.z_dim, self.model.batch_size)
             save_interp_cap_batch(samples, cap1, cap2,
@@ -89,7 +92,9 @@ class StageIIVisualizer(object):
             save_cap_batch(samples, text, '{}/{}_visual/stages/stage{}.png'.format(self.samples_dir,
                                                                                    self.dataset.name, idx))
 
-        for idx, special_pos in enumerate([1126, 908, 398]):
+        special_flowers = [1126, 908, 398]
+        special_birds = [12, 908, 1005]
+        for idx, special_pos in enumerate(special_birds):
             print(special_pos)
             # Generate specific image
             # ---------------------------------------------------------------------------------------------------------
@@ -101,16 +106,16 @@ class StageIIVisualizer(object):
             save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(self.samples_dir,
                                                                                          self.dataset.name, idx))
 
-        # Generate some images and their closest neighbours
-        # ---------------------------------------------------------------------------------------------------------
-        _, conditions, _, _ = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
-        conditions = np.squeeze(conditions)
-        samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
-                                                        self.model.batch_size, self.dataset)
-        batch = np.concatenate([samples, neighbours])
-        text = 'Generated images and their closest neighbours'
-        save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
-                                                                            self.dataset.name))
+        # # Generate some images and their closest neighbours
+        # # ---------------------------------------------------------------------------------------------------------
+        # _, conditions, _, _ = self.dataset.test.next_batch_test(self.model.batch_size, dataset_pos, 1)
+        # conditions = np.squeeze(conditions)
+        # samples, neighbours = gen_closest_neighbour_img(self.sess, gen, conditions, self.model.z_dim,
+        #                                                 self.model.batch_size, self.dataset)
+        # batch = np.concatenate([samples, neighbours])
+        # text = 'Generated images and their closest neighbours'
+        # save_cap_batch(batch, text, '{}/{}_visual/neighb/neighb.png'.format(self.samples_dir,
+        #                                                                     self.dataset.name))
 
 
 

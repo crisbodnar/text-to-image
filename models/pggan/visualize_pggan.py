@@ -9,6 +9,8 @@ import os
 flags = tf.app.flags
 flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
@@ -19,7 +21,7 @@ if __name__ == "__main__":
 
     cfg = config_from_yaml(FLAGS.cfg)
 
-    batch_size = 32
+    batch_size = 64
     z_dim = 128
 
     datadir = cfg.DATASET_DIR
@@ -80,8 +82,9 @@ if __name__ == "__main__":
             img_for_this_desc.append(all_samples[stg, idx, :, :, :])
 
         img_for_this_desc = np.array(img_for_this_desc)
-        save_cap_batch(img_for_this_desc, caption, '{}/{}_visual/stages/stages{}.png'.format('samples/PGGAN/flowers',
-                                                                                             'flowers', idx), split=35)
+        save_cap_batch(img_for_this_desc, caption, '{}/{}_visual/stages/stages{}.png'.format(cfg.SAMPLE_DIR,
+                                                                                             dataset.name, idx),
+                                                                                             split=35)
 
 
 

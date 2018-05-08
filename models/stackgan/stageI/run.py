@@ -37,7 +37,7 @@ def main(_):
     dataset = TextDataset(datadir, 64)
 
     filename_test = '%s/test' % datadir
-    dataset._test = dataset.get_data(filename_test)
+    dataset.test = dataset.get_data(filename_test)
 
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)

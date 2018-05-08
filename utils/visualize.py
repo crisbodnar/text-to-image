@@ -34,11 +34,16 @@ def get_interpolated_batch(a, b, batch_size=64, method='slerp'):
 
     step_size = 1 / batch_size
     interp = []
-    for val in np.arange(1.0, 0.0, -step_size):
+    for val in np.arange(1.0, 0.0 + step_size, -step_size):
         if method == 'slerp':
             interp.append(slerp(a, b, val))
         elif method == 'lerp':
             interp.append(lerp(a, b, val))
+    if method == 'slerp':
+        interp.append(slerp(a, b, 0.0))
+    elif method == 'lerp':
+        interp.append(lerp(a, b, 0.0))
+
     return interp
 
 

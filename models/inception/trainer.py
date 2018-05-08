@@ -76,7 +76,6 @@ class InceptionTrainer(object):
                 start_point = checkpoint_counter
                 print(" [*] Load SUCCESS")
             else:
-                start_point = 0
                 print(" [!] Load failed...")
                 raise RuntimeError('Failed to restore the complete Inception model')
         sys.stdout.flush()
