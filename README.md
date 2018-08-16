@@ -21,7 +21,7 @@ As it can be seen, the generated images do not suffer from mode collapse.
 
 ![Sample from the flowers dataset](./img/sample_flowers.jpg)
 
-Conditional Wasserstein Progressive Growing GAN:
+Illustration of Conditional Wasserstein Progressive Growing GAN on the flowers dataset:
 
 ![Sample from the flowers dataset](./img/sample_flowers2.png)
 
