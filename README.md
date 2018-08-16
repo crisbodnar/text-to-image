@@ -1,7 +1,6 @@
-# Text to Photo Realistic Image Synthesis
+# Text to Image Synthesis using Generative Adversarial Networks
 
-This project combines in its implementation multiple research papers for text to image synthesys. 
-The currently supported dataset is Oxford 102 flowers dataset. 
+This is the official implementation for my thesis on  [Text to Image Synthesis using Generative Adversarial Networks](https://arxiv.org/abs/1805.00676). Please be aware that the code is in an experimental stage and it might require some small tweaks.
 
 ## How to download the dataset
 
