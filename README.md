@@ -1,6 +1,6 @@
 # Text to Image Synthesis using Generative Adversarial Networks
 
-This is the official implementation for my thesis on  [Text to Image Synthesis using Generative Adversarial Networks](https://arxiv.org/abs/1805.00676).
+This is the official code for [Text to Image Synthesis using Generative Adversarial Networks](https://arxiv.org/abs/1805.00676).
 Please be aware that the code is in an experimental stage and it might require some small tweaks.
 
 If you find my research useful, please use the following to cite:
