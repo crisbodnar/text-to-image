@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from models.stackgan.stageI.model import ConditionalGan
+from preprocess.data_batch import DataBatch
 from utils.utils import save_images, get_balanced_factorization, initialize_uninitialized, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
@@ -119,15 +120,15 @@ class ConditionalGanTrainer(object):
             cen_epoch = epoch // 100
 
             for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
-                                                                                  embeddings=True, wrong_img=True)
+                batch: DataBatch = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True, 
+                                                                 wrong_img=True)
                 batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
 
                 feed_dict = {
                     self.learning_rate: self.lr * (0.5**cen_epoch),
-                    self.model.inputs: images,
-                    self.model.wrong_inputs: wrong_images,
-                    self.model.embed_inputs: embed,
+                    self.model.inputs: batch.images,
+                    self.model.wrong_inputs: batch.wrong_images,
+                    self.model.embed_inputs: batch.embeddings,
                     self.model.z: batch_z,
                 }
 

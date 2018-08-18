@@ -3,6 +3,7 @@ from evaluation import inception_score
 
 from models.inception.model import load_inception_inference
 from models.pggan.pggan import PGGAN
+from preprocess.data_batch import DataBatch
 from utils.config import config_from_yaml
 from utils.utils import make_gif, prep_incep_img
 from utils.visualize import *
@@ -74,10 +75,10 @@ if __name__ == "__main__":
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(batch_size, sample_size))
-            _, _, embed, _, _ = dataset.test.next_batch(batch_size, 4, embeddings=True)
+            batch: DataBatch = dataset.test.next_batch(batch_size, 4, embeddings=True)
 
             # Generate a batch and scale it up for inception
-            gen_batch = sess.run(gen_op, feed_dict={z: sample_z, cond: embed})
+            gen_batch = sess.run(gen_op, feed_dict={z: sample_z, cond: batch.embeddings})
             gen_batch = np.clip(gen_batch, -1., 1.)
 
             samples = denormalize_images(gen_batch)

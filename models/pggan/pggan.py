@@ -1,6 +1,7 @@
 import tensorflow as tf
 import time
 
+from preprocess.data_batch import DataBatch
 from utils.ops import lrelu_act, conv2d, fc, upscale, pool, layer_norm
 from utils.utils import save_images, get_balanced_factorization, show_all_variables, save_captions, print_vars, \
     initialize_uninitialized
@@ -196,17 +197,15 @@ class PGGAN(object):
                 epoch_size = self.dataset.train.num_examples // self.batch_size
                 epoch = idx // epoch_size
 
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.batch_size, 4,
-                                                                                  wrong_img=True,
-                                                                                  embeddings=True)
+                batch: DataBatch = self.dataset.train.next_batch(self.batch_size, 4, wrong_img=True, embeddings=True)
                 batch_z = np.random.normal(0, 1, (self.batch_size, self.z_dim))
                 eps = np.random.uniform(0., 1., size=(self.batch_size, 1, 1, 1))
 
                 feed_dict = {
-                    self.x: images,
+                    self.x: batch.images,
                     self.learning_rate: self.lr_inp,
-                    self.x_mismatch: wrong_images,
-                    self.cond: embed,
+                    self.x_mismatch: batch.wrong_images,
+                    self.cond: batch.embeddings,
                     self.z: batch_z,
                     self.epsilon: eps,
                     self.z_sample: sample_z,

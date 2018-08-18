@@ -74,7 +74,7 @@ class WGanClsTrainer(object):
             epoch_size = self.dataset.train.num_examples // self.model.batch_size
             epoch = idx // epoch_size
 
-            images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True,
+            images, wrong_images, embed, _, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True,
                                                                               wrong_img=True)
             batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
             eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))

@@ -1,6 +1,7 @@
 from random import randint
 
 from models.stackgan.stageI.model import ConditionalGan
+from preprocess.data_batch import DataBatch
 from utils.saver import load
 from utils.utils import denormalize_images
 from preprocess.dataset import TextDataset
@@ -61,9 +62,10 @@ class StageIEval(object):
             end = start + self.bs
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            images, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
-            samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
+            samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, 
+                                                                                        cond: batch.embeddings}))
 
         print('Computing activation statistics for generated x...')
         mu_gen, sigma_gen = fid.calculate_activation_statistics(samples, self.sess, incep_batch_size, act_op,
@@ -106,11 +108,11 @@ class StageIEval(object):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            _, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
             start = i * self.bs
             end = start + self.bs
 
-            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed})
+            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: batch.embeddings})
             samples[start: end] = denormalize_images(gen_batch)
 
         print('\nComputing inception score...')

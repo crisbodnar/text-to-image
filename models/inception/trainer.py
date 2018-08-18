@@ -85,7 +85,7 @@ class InceptionTrainer(object):
             epoch_size = self.dataset.test.num_examples // batch_size
             epoch = idx // epoch_size
 
-            images, _, _, _, labels = self.dataset.test.next_batch(batch_size, labels=True)
+            images, _, _, _, labels, _ = self.dataset.test.next_batch(batch_size, labels=True)
 
             # Bring the labels in a continuous range: [0, num_classes)
             new_labels = []

@@ -2,6 +2,7 @@ from random import randint
 
 import tensorflow as tf
 from models.gancls.model import GanCls
+from preprocess.data_batch import DataBatch
 from utils.utils import save_images, get_balanced_factorization
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
@@ -106,9 +107,8 @@ class GanClsTrainer(object):
             updates_per_epoch = self.dataset.train.num_examples // self.model.batch_size
 
             for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
-                                                                                  embeddings=True,
-                                                                                  wrong_img=True)
+                batch: DataBatch = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True,
+                                                                 wrong_img=True)
                 batch_z = np.random.normal(0, 1, [self.model.batch_size, self.model.z_dim]).astype(np.float32)
 
                 # Update D network
@@ -116,9 +116,9 @@ class GanClsTrainer(object):
                     [self.D_optim, self.D_real_match_loss, self.D_real_mismatch_loss, self.D_synthetic_loss,
                      self.D_loss, self.D_merged_summ],
                     feed_dict={
-                        self.model.inputs: images,
-                        self.model.wrong_inputs: wrong_images,
-                        self.model.phi_inputs: embed,
+                        self.model.inputs: batch.images,
+                        self.model.wrong_inputs: batch.wrong_images,
+                        self.model.phi_inputs: batch.embeddings,
                         self.model.z: batch_z
                     })
                 self.writer.add_summary(summary_str, counter)
@@ -126,9 +126,9 @@ class GanClsTrainer(object):
                 # Update G network
                 _, err_g, summary_str = self.sess.run([self.G_optim, self.G_loss, self.G_merged_summ],
                                                       feed_dict={
-                                                          self.model.inputs: images,
-                                                          self.model.wrong_inputs: wrong_images,
-                                                          self.model.phi_inputs: embed,
+                                                          self.model.inputs: batch.images,
+                                                          self.model.wrong_inputs: batch.wrong_images,
+                                                          self.model.phi_inputs: batch.embeddings,
                                                           self.model.z: batch_z
                                                       })
                 self.writer.add_summary(summary_str, counter)

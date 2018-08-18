@@ -55,7 +55,7 @@ class StageIIEval(object):
         # Evaluate each bach on inception dynamically to avoid getting out of memory
         for i in range(n_batches):
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            images, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
             samples = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
 
@@ -109,7 +109,7 @@ class StageIIEval(object):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            _, _, embed, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            _, _, embed, _, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
             # Generate a batch and scale it up for inception
             gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed})

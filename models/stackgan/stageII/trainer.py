@@ -130,7 +130,7 @@ class ConditionalGanTrainer(object):
             cen_epoch = epoch // 100
 
             for idx in range(0, updates_per_epoch):
-                images, wrong_images, embed, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
+                images, wrong_images, embed, _, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4,
                                                                                   embeddings=True,
                                                                                   wrong_img=True)
                 batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))

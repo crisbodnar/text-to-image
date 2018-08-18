@@ -8,6 +8,8 @@ import pickle
 import random
 import os
 
+from preprocess.data_batch import DataBatch
+
 FINAL_SIZE_TO_ORIG = {
     4: 4,
     8: 8,
@@ -119,7 +121,8 @@ class Dataset(object):
             sampled_embeddings_array = np.array(sampled_embeddings)
             return np.squeeze(sampled_embeddings_array), sampled_captions
 
-    def next_batch(self, batch_size, window=None, wrong_img=False, embeddings=False, labels=False):
+    def next_batch(self, batch_size, window=None, wrong_img=False, embeddings=False, labels=False,
+                   wrong_emb=False) -> DataBatch:
         """Return the next `batch_size` examples from this data set.
 
         :arg batch_size: the size of the batch
@@ -127,7 +130,10 @@ class Dataset(object):
         :arg wrong_img: include the mismatching x in the return list
         :arg embeddings: include the text embedding is the return list
         :arg labels: include the class labels in the return list
+        :arg wrong_emb: include embeddings which mismatch the images
         """
+        batch: DataBatch = DataBatch()
+        
         start = self._index_in_epoch
         self._index_in_epoch += batch_size
 
@@ -148,8 +154,7 @@ class Dataset(object):
         sampled_images = self._images[current_ids]
         sampled_images = sampled_images.astype(np.float32)
         sampled_images = sampled_images * (2. / 255) - 1.
-        sampled_images = self.transform(sampled_images)
-        ret_list = [sampled_images]
+        batch.images = self.transform(sampled_images)
 
         if wrong_img:
             fake_ids = np.random.randint(self._num_examples, size=batch_size)
@@ -159,29 +164,27 @@ class Dataset(object):
             sampled_wrong_images = self._images[fake_ids, :, :, :]
             sampled_wrong_images = sampled_wrong_images.astype(np.float32)
             sampled_wrong_images = sampled_wrong_images * (2. / 255) - 1.
-            sampled_wrong_images = self.transform(sampled_wrong_images)
-            ret_list.append(sampled_wrong_images)
-        else:
-            ret_list.append(None)
+            batch.wrong_images = self.transform(sampled_wrong_images)
 
         if self._embeddings is not None and embeddings:
             filenames = [self._filenames[i] for i in current_ids]
             class_id = [self._class_id[i] for i in current_ids]
-            sampled_embeddings, sampled_captions = \
-                self.sample_embeddings(self._embeddings[current_ids],
-                                       filenames, class_id, window)
-            ret_list.append(sampled_embeddings)
-            ret_list.append(sampled_captions)
-        else:
-            ret_list.append(None)
-            ret_list.append(None)
+            batch.embeddings, batch.captions = self.sample_embeddings(self._embeddings[current_ids], filenames, 
+                                                                      class_id, window)
 
         if self._labels is not None and labels:
-            class_id = [self._class_id[i] for i in current_ids]
-            ret_list.append(class_id)
-        else:
-            ret_list.append(None)
-        return ret_list
+            batch.class_ids = [self._class_id[i] for i in current_ids]
+
+        if wrong_emb:
+            fake_ids = np.random.randint(self._num_examples, size=batch_size)
+            collision_flag = (self._class_id[current_ids] == self._class_id[fake_ids])
+            fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
+
+            filenames = [self._filenames[i] for i in fake_ids]
+            class_id = [self._class_id[i] for i in fake_ids]
+            batch.wrong_embeddings, _ = self.sample_embeddings(self._embeddings[fake_ids], filenames, class_id, window)
+
+        return batch
 
     def next_batch_test(self, batch_size, start, max_captions):
         """Return the next `batch_size` examples from this data set."""
