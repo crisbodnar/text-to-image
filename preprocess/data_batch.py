@@ -7,3 +7,4 @@ class DataBatch(object):
         self.wrong_embeddings = None
         self.captions = None
         self.labels = None
+        self.ids = None

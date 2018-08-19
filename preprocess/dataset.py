@@ -97,6 +97,11 @@ class Dataset(object):
         else:
             return images
 
+    def get_embeddings_from_ids(self, ids, window=4):
+        filenames = [self._filenames[i] for i in ids]
+        class_id = [self._class_id[i] for i in ids]
+        return self.sample_embeddings(self._embeddings[ids], filenames, class_id, window)
+
     def sample_embeddings(self, embeddings, filenames, class_id, sample_num):
         """Returns a mean of the specified number of embeddings (5 available per inp_image)"""
         if len(embeddings.shape) == 2 or embeddings.shape[1] == 1:
@@ -155,6 +160,7 @@ class Dataset(object):
         sampled_images = sampled_images.astype(np.float32)
         sampled_images = sampled_images * (2. / 255) - 1.
         batch.images = self.transform(sampled_images)
+        batch.ids = current_ids
 
         if wrong_img:
             fake_ids = np.random.randint(self._num_examples, size=batch_size)
@@ -167,10 +173,7 @@ class Dataset(object):
             batch.wrong_images = self.transform(sampled_wrong_images)
 
         if self._embeddings is not None and embeddings:
-            filenames = [self._filenames[i] for i in current_ids]
-            class_id = [self._class_id[i] for i in current_ids]
-            batch.embeddings, batch.captions = self.sample_embeddings(self._embeddings[current_ids], filenames,
-                                                                      class_id, window)
+            batch.embeddings, batch.captions = self.get_embeddings_from_ids(current_ids, window)
 
         if self._labels is not None and labels:
             batch.labels = [self._class_id[i] for i in current_ids]
@@ -180,9 +183,7 @@ class Dataset(object):
             collision_flag = (self._class_id[current_ids] == self._class_id[fake_ids])
             fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples
 
-            filenames = [self._filenames[i] for i in fake_ids]
-            class_id = [self._class_id[i] for i in fake_ids]
-            batch.wrong_embeddings, _ = self.sample_embeddings(self._embeddings[fake_ids], filenames, class_id, window)
+            batch.wrong_embeddings, _ = self.get_embeddings_from_ids(fake_ids, window)
 
         return batch
 

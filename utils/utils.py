@@ -11,6 +11,8 @@ import imageio
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+from preprocess.utils import get_image
+
 pp = pprint.PrettyPrinter()
 imageio.plugins.ffmpeg.download()
 get_stddev = lambda x, k_h, k_w: 1 / math.sqrt(k_w * k_h * x.get_shape()[-1])
@@ -163,6 +165,13 @@ def resize_imgs(imgs, size, interp='bicubic'):
     for img in imgs:
         res.append(scipy.misc.imresize(img, size, interp))
     return res
+
+
+def load_imgs_with_filenames(filenames, size):
+    images = np.ndarray(shape=(len(filenames), size, size, 3), dtype=np.uint8)
+    for idx, file in enumerate(filenames):
+        images[idx, :, :, :] = get_image(file, size, is_crop=False).astype('unit8')
+    return images
 
 
 def print_vars(vars):
