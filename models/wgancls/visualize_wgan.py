@@ -61,7 +61,7 @@ class WGanClsVisualizer(object):
             #                                                                            self.dataset.name,
             #                                                                            idx), duration=4)
 
-            # Generate captioned image
+            # Generate captioned inp_image
             # ---------------------------------------------------------------------------------------------------------
             _, conditions, _, captions = self.dataset.test.next_batch_test(1, dataset_pos, 1)
             conditions = np.squeeze(conditions, axis=0)
@@ -72,7 +72,7 @@ class WGanClsVisualizer(object):
                                                                                  self.dataset.name, idx))
         for idx, special_pos in enumerate([1126, 908, 398]):
             print(special_pos)
-            # Generate specific image
+            # Generate specific inp_image
             # ---------------------------------------------------------------------------------------------------------
             _, conditions, _, captions = self.dataset.test.next_batch_test(1, special_pos, 1)
             conditions = np.squeeze(conditions, axis=0)

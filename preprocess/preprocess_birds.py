@@ -75,7 +75,7 @@ def save_data_list(inpath, outpath, filenames, filename_bbox):
 
 
 def convert_birds_dataset_pickle(inpath):
-    # Load dictionary between image filename to its bbox
+    # Load dictionary between inp_image filename to its bbox
 
     filename_bbox = load_bbox(inpath)
     # ## For Train data

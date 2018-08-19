@@ -34,7 +34,7 @@ class GanCls(object):
             self.build_model()
 
     def build_model(self):
-        # Define the input tensor by appending the batch size dimension to the image dimension
+        # Define the input tensor by appending the batch size dimension to the inp_image dimension
         self.inputs = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='real_images')
         self.wrong_inputs = tf.placeholder(tf.float32, [self.batch_size] + self.image_dims, name='wrong_images')
         self.phi_inputs = tf.placeholder(tf.float32, [self.batch_size] + [self.embed_dim], name='phi_inputs')

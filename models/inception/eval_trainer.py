@@ -1,5 +1,6 @@
 import tensorflow as tf
 from models.inception.model import inception_net
+from preprocess.data_batch import DataBatch
 from utils.saver import save, load
 from utils.utils import show_all_variables
 from preprocess.dataset import TextDataset
@@ -18,7 +19,7 @@ class InceptionTrainer(object):
     def define_summaries(self):
         self.summary_op = tf.summary.merge([
             tf.summary.scalar('loss', self.loss),
-            tf.summary.image('image', self.x),
+            tf.summary.image('inp_image', self.x),
             tf.summary.scalar('train_acc', self.train_accuracy),
         ])
 
@@ -85,20 +86,20 @@ class InceptionTrainer(object):
             epoch_size = self.dataset.test.num_examples // batch_size
             epoch = idx // epoch_size
 
-            images, _, _, _, labels, _ = self.dataset.test.next_batch(batch_size, labels=True)
+            batch: DataBatch = self.dataset.test.next_batch(batch_size, labels=True)
 
             # Bring the labels in a continuous range: [0, num_classes)
             new_labels = []
-            for label in labels:
+            for label in batch.labels:
                 new_labels.append(self.class_to_idx[label])
 
-            assert(np.min(images) >= -1.)
-            assert(np.max(images) <= 1.)
+            assert(np.min(batch.images) >= -1.)
+            assert(np.max(batch.images) <= 1.)
             assert(np.min(new_labels) >= 0)
             assert(np.max(new_labels) < 50)  # 20 for flowers, 50 for birds
 
             feed_dict = {
-                self.x: images,
+                self.x: batch.images,
                 self.labels: new_labels,
             }
 

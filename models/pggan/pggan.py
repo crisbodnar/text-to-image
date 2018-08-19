@@ -46,7 +46,7 @@ class PGGAN(object):
             self.define_summaries()
 
     def build_model(self):
-        # Define the input tensor by appending the batch size dimension to the image dimension
+        # Define the input tensor by appending the batch size dimension to the inp_image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
         self.learning_rate = tf.placeholder(tf.float32, shape=None)
         self.x = tf.placeholder(tf.float32, [self.batch_size, self.output_size, self.output_size, self.channel], name='x')
@@ -236,7 +236,7 @@ class PGGAN(object):
                                     '{}train_{:02d}_{:04d}.png'.format(self.sample_path, epoch, idx))
 
                     except Exception as e:
-                        print("Failed to generate sample image")
+                        print("Failed to generate sample inp_image")
                         print(type(e))
                         print(e.args)
                         print(e)

@@ -98,7 +98,7 @@ class Dataset(object):
             return images
 
     def sample_embeddings(self, embeddings, filenames, class_id, sample_num):
-        """Returns a mean of the specified number of embeddings (5 available per image)"""
+        """Returns a mean of the specified number of embeddings (5 available per inp_image)"""
         if len(embeddings.shape) == 2 or embeddings.shape[1] == 1:
             return np.squeeze(embeddings)
         else:
@@ -133,7 +133,7 @@ class Dataset(object):
         :arg wrong_emb: include embeddings which mismatch the images
         """
         batch: DataBatch = DataBatch()
-        
+
         start = self._index_in_epoch
         self._index_in_epoch += batch_size
 
@@ -169,13 +169,13 @@ class Dataset(object):
         if self._embeddings is not None and embeddings:
             filenames = [self._filenames[i] for i in current_ids]
             class_id = [self._class_id[i] for i in current_ids]
-            batch.embeddings, batch.captions = self.sample_embeddings(self._embeddings[current_ids], filenames, 
+            batch.embeddings, batch.captions = self.sample_embeddings(self._embeddings[current_ids], filenames,
                                                                       class_id, window)
 
         if self._labels is not None and labels:
-            batch.class_ids = [self._class_id[i] for i in current_ids]
+            batch.labels = [self._class_id[i] for i in current_ids]
 
-        if wrong_emb:
+        if self._embeddings is not None and wrong_emb:
             fake_ids = np.random.randint(self._num_examples, size=batch_size)
             collision_flag = (self._class_id[current_ids] == self._class_id[fake_ids])
             fake_ids[collision_flag] = (fake_ids[collision_flag] + np.random.randint(100, 200)) % self._num_examples

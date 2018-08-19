@@ -157,7 +157,7 @@ class ConditionalGanTrainer(object):
                         save_images(samples, get_balanced_factorization(samples.shape[0]),
                                     '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
                     except Exception as e:
-                        print("Failed to generate sample image")
+                        print("Failed to generate sample inp_image")
                         print(type(e))
                         print(e.args)
                         print(e)

@@ -1,6 +1,6 @@
 import os
 
-from models.inception.trainer import InceptionTrainer
+from models.inception.eval_trainer import InceptionTrainer
 from utils.utils import pp
 from utils.config import config_from_yaml
 from preprocess.dataset import TextDataset

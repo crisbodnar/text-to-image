@@ -93,7 +93,7 @@ if __name__ == "__main__":
                                                                                        dataset.name,
                                                                                        idx), duration=10)
 
-            # Generate captioned image
+            # Generate captioned inp_image
             # ---------------------------------------------------------------------------------------------------------
             _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
             conditions = np.squeeze(conditions, axis=0)
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         special_birds = [12, 908, 1005]
         for idx, special_pos in enumerate(special_birds):
             print(special_pos)
-            # Generate specific image
+            # Generate specific inp_image
             # ---------------------------------------------------------------------------------------------------------
             _, conditions, _, captions = dataset.test.next_batch_test(1, special_pos, 1)
             conditions = np.squeeze(conditions, axis=0)

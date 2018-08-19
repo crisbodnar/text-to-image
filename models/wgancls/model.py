@@ -32,7 +32,7 @@ class WGanCls(object):
             self.define_losses()
 
     def build_model(self):
-        # Define the input tensor by appending the batch size dimension to the image dimension
+        # Define the input tensor by appending the batch size dimension to the inp_image dimension
         self.iter = tf.placeholder(tf.int32, shape=None)
         self.learning_rate_d = tf.placeholder(tf.float32, shape=None)
         self.learning_rate_g = tf.placeholder(tf.float32, shape=None)

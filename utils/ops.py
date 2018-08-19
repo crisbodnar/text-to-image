@@ -142,6 +142,12 @@ def df_to_channel(df):
     raise RuntimeError('Invalid data format %s' % df)
 
 
+def cosine_similarity(v1, v2):
+    return tf.reduce_sum(tf.multiply(v1, v2), reduction_indices=1) / \
+           (tf.sqrt(tf.reduce_sum(tf.multiply(v1, v1), reduction_indices=1))
+            * tf.sqrt(tf.reduce_sum(tf.multiply(v2, v2), reduction_indices=1)))
+
+
 def gn(x, mag):
     noise_mag = 1.0 + 0.2 * tf.square(tf.maximum(0.0, mag - 0.5))
     noise = noise_mag ** tf.random_normal(x.get_shape())

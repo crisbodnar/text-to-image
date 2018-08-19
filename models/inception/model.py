@@ -10,6 +10,8 @@ def inception_net(images, num_classes, for_training=False, reuse=False):
     with slim.arg_scope(inception.inception_v3_arg_scope()):
             logits, endpoints = inception.inception_v3(images,
                                                        dropout_keep_prob=0.8,
+                                                       min_depth=16,
+
                                                        num_classes=num_classes,
                                                        is_training=for_training,
                                                        reuse=reuse,

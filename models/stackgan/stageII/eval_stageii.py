@@ -1,4 +1,5 @@
 from models.stackgan.stageII.model import ConditionalGan
+from preprocess.data_batch import DataBatch
 from utils.saver import load
 from utils.utils import denormalize_images, prep_incep_img
 from preprocess.dataset import TextDataset
@@ -57,7 +58,7 @@ class StageIIEval(object):
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
             batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
-            samples = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed}))
+            samples = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, cond: batch.embeddings}))
 
 
         print('Computing activation statistics for generated x...')
@@ -109,10 +110,10 @@ class StageIIEval(object):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            _, _, embed, _, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
             # Generate a batch and scale it up for inception
-            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed})
+            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: batch.embeddings})
 
             samples = denormalize_images(gen_batch)
             incep_samples = np.empty((self.bs, 299, 299, 3))

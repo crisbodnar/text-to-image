@@ -55,7 +55,7 @@ def interp_z(sess, gen_op, cond_sample, z1, z2, z='z:0', cond='cond:0', method='
 
 
 def write_caption(img, caption, font_size, vert_pos, split=50):
-    """Writes a caption on the top row of the provided image. Blank space should be left on the top row."""
+    """Writes a caption on the top row of the provided inp_image. Blank space should be left on the top row."""
     img_txt = Image.fromarray(img)
     # get a font
     try:
@@ -89,7 +89,7 @@ def preporcess_caption(cap: str):
 
 
 def save_cap_batch(img_batch, caption, path, rows=None, split=50):
-    """Creates a super image of generated images with the caption of the images written on a top blank row."""
+    """Creates a super inp_image of generated images with the caption of the images written on a top blank row."""
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=False, rows=rows)
@@ -114,7 +114,7 @@ def prepare_img_for_captioning(img_batch, bottom, rows=None):
     text_row = np.tile(np.ones(img_shape) * 255, reps=(1, n, 1))
     top_row = text_row
 
-    # Fill in the super image row by row
+    # Fill in the super inp_image row by row
     img_batch = denormalize_images(img_batch)
     super_img = top_row
     for rown in range(rows):
@@ -133,8 +133,8 @@ def prepare_img_for_captioning(img_batch, bottom, rows=None):
 
 
 def save_interp_cap_batch(img_batch, cap1, cap2, path, rows=None):
-    """Creates a super image of interpolated captions."""
-    """Creates a super image of generated images with the caption of the images written on a top blank row."""
+    """Creates a super inp_image of interpolated captions."""
+    """Creates a super inp_image of generated images with the caption of the images written on a top blank row."""
     img_shape = img_batch[0].shape
     font_size = img_shape[0] // 3 - 2
     super_img = prepare_img_for_captioning(img_batch, bottom=True, rows=rows)
@@ -192,7 +192,7 @@ def gen_captioned_img(sess, gen_op, cond, z_dim, batch_size):
 
 
 def closest_image(fake_img, dataset: TextDataset):
-    """Finds the closest image from the dataset of a given image"""
+    """Finds the closest inp_image from the dataset of a given inp_image"""
     min_distance = float('inf')
     closest_img = None
     for idx in range(dataset.train.num_examples):
@@ -250,7 +250,7 @@ def gen_multiple_stage_img(sess, gen_ops, cond, z_dim, batch_size, size=128):
 
 
 def gen_pggan_sample(samples, size=128, interp='bicubic'):
-    """Same image at multiple PGGAN scales"""
+    """Same inp_image at multiple PGGAN scales"""
     stages = len(samples)
     batch_size = len(samples[0])
     new_samples = np.empty(shape=(stages, batch_size, size, size, 3))

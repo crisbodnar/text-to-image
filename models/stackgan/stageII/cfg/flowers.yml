@@ -8,7 +8,7 @@ SAMPLE_DIR: './samples/StackGAN-StageII/flowers/'
 
 MODEL:
   Z_DIM: 100 # Dimension of the noise vector
-  OUTPUT_SIZE: 256 # The ouput size of the image (e.g. 64x64)
+  OUTPUT_SIZE: 256 # The ouput size of the inp_image (e.g. 64x64)
   EMBED_DIM: 1024 # The dimension of the embedding before compression (as given by the cnn-rnn encoder)
   COMPRESSED_EMBED_DIM: 128 # The dimension of the embedding after compression
   GF_DIM: 128 # The number of filters in the first convolutional layer of the generator

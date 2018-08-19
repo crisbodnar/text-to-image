@@ -1,5 +1,6 @@
 import tensorflow as tf
 from models.wgancls.model import WGanCls
+from preprocess.data_batch import DataBatch
 from utils.utils import save_images, get_balanced_factorization, save_captions
 from utils.saver import save, load
 from preprocess.dataset import TextDataset
@@ -74,8 +75,7 @@ class WGanClsTrainer(object):
             epoch_size = self.dataset.train.num_examples // self.model.batch_size
             epoch = idx // epoch_size
 
-            images, wrong_images, embed, _, _, _ = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True,
-                                                                              wrong_img=True)
+            batch: DataBatch = self.dataset.train.next_batch(self.model.batch_size, 4, embeddings=True, wrong_img=True)
             batch_z = np.random.normal(0, 1, (self.model.batch_size, self.model.z_dim))
             eps = np.random.uniform(0., 1., size=(self.model.batch_size, 1, 1, 1))
             n_critic = self.cfg.TRAIN.N_CRITIC
@@ -84,9 +84,9 @@ class WGanClsTrainer(object):
             feed_dict = {
                 self.model.learning_rate_d: self.lr_d * (0.95**kiter),
                 self.model.learning_rate_g: self.lr_g * (0.95**kiter),
-                self.model.x: images,
-                self.model.x_mismatch: wrong_images,
-                self.model.cond: embed,
+                self.model.x: batch.images,
+                self.model.x_mismatch: batch.wrong_images,
+                self.model.cond: batch.embeddings,
                 self.model.z: batch_z,
                 self.model.epsilon: eps,
                 self.model.z_sample: sample_z,
@@ -95,7 +95,7 @@ class WGanClsTrainer(object):
             }
 
             _, _, err_d = self.sess.run([self.model.D_optim, self.model.kt_optim, self.model.D_loss],
-                                         feed_dict=feed_dict)
+                                        feed_dict=feed_dict)
 
             if idx % n_critic == 0:
                 _, err_g = self.sess.run([self.model.G_optim, self.model.G_loss],
@@ -117,7 +117,7 @@ class WGanClsTrainer(object):
                                 '{}train_{:02d}_{:04d}.png'.format(self.cfg.SAMPLE_DIR, epoch, idx))
 
                 except Exception as e:
-                    print("Failed to generate sample image")
+                    print("Failed to generate sample inp_image")
                     print(type(e))
                     print(e.args)
                     print(e)

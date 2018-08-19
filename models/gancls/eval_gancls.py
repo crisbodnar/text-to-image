@@ -61,7 +61,7 @@ class GanClsEval(object):
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
             batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
 
-            samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z, 
+            samples[start: end] = denormalize_images(self.sess.run(eval_gen, feed_dict={z: sample_z,
                                                                                         cond: batch.embeddings}))
 
         print('Computing activation statistics for generated x...')
@@ -105,11 +105,11 @@ class GanClsEval(object):
             print("\rGenerating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
 
             sample_z = np.random.normal(0, 1, size=(self.bs, self.model.z_dim))
-            _, _, embed, _, _, _ = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
+            batch: DataBatch = self.dataset.test.next_batch(self.bs, 4, embeddings=True)
             start = i * self.bs
             end = start + self.bs
 
-            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: embed})
+            gen_batch = self.sess.run(eval_gen, feed_dict={z: sample_z, cond: batch.embeddings})
             samples[start: end] = denormalize_images(gen_batch)
 
         print('\nComputing inception score...')

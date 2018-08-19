@@ -155,7 +155,7 @@ class GanClsTrainer(object):
                             print('{}: {}'.format(caption_idx + 1, caption_batch[0]))
                         print()
                     except Exception as e:
-                        print("Failed to generate sample image")
+                        print("Failed to generate sample inp_image")
                         print(type(e))
                         print(e.args)
                         print(e)
