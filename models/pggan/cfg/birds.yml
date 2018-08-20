@@ -21,7 +21,7 @@ MODEL:
     - 512
 
 TRAIN:
-  FLAG: True
+  FLAG: False
   MAX_STEPS: 32000
   BATCH_SIZE: 16 # Size of the training batches
   SAMPLE_NUM: 16 # The number of samples to be generated during training/testing by the sampler network. It must be a perfect square!!!

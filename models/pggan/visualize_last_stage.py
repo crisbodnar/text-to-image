@@ -1,18 +1,22 @@
 import tensorflow as tf
 
 from models.pggan.pggan import PGGAN
+from preprocess.data_batch import DataBatch
 from utils.config import config_from_yaml
-from utils.utils import make_gif
 from utils.visualize import *
 from utils.saver import load
+import scipy.misc
+
 import os
 
 flags = tf.app.flags
-flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
-                    'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
-# flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
-#                     'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
+# flags.DEFINE_string('cfg', './models/pggan/cfg/flowers.yml',
+#                     'Relative path to the config of the model [./models/pggan/cfg/flowers.yml]')
+flags.DEFINE_string('cfg', './models/pggan/cfg/birds.yml',
+                    'Relative path to the config of the model [./models/pggan/cfg/birds.yml]')
 FLAGS = flags.FLAGS
+
+IMG_FOLDER = 'samples/birds/eval/'
 
 if __name__ == "__main__":
     cfg = config_from_yaml(FLAGS.cfg)
@@ -26,7 +30,7 @@ if __name__ == "__main__":
     filename_train = '%s/train' % datadir
     dataset.train = dataset.get_data(filename_train)
 
-    batch_size = 64
+    batch_size = 32
     stage = 7
     z_dim = 128
 
@@ -36,6 +40,8 @@ if __name__ == "__main__":
         os.makedirs(pggan_checkpoint_dir_read)
     if not os.path.exists(samples_dir):
         os.makedirs(samples_dir)
+    if not os.path.exists(IMG_FOLDER):
+        os.makedirs(IMG_FOLDER)
 
     run_config = tf.ConfigProto()
     run_config.gpu_options.allow_growth = True
@@ -57,67 +63,84 @@ if __name__ == "__main__":
         if not could_load:
             raise RuntimeError('Could not load stage %d' % stage)
 
-        dataset_pos = np.random.randint(0, dataset.test.num_examples)
-        for idx in range(40):
-            dataset_pos = np.random.randint(0, dataset.test.num_examples)
-            dataset_pos2 = np.random.randint(0, dataset.test.num_examples)
+        for idx in range(1000):
+            epoch_size = dataset.test.num_examples // batch_size
+            epoch = idx // epoch_size
 
-            # Interpolation in z space:
-            # ---------------------------------------------------------------------------------------------------------
-            _, cond, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
-            cond = np.squeeze(cond, axis=0)
-            caption = captions[0][0]
+            batch: DataBatch = dataset.test.next_batch(batch_size, 4, embeddings=True)
+            batch_z = np.random.normal(0, 1, (batch_size, z_dim))
 
-            samples = gen_noise_interp_img(sess, gen_no_noise, cond, z_dim, batch_size)
-            samples = np.clip(samples, -1., 1.)
-            save_cap_batch(samples, caption, '{}/{}_visual/z_interp/z_interp{}.png'.format(samples_dir,
-                                                                                           dataset.name,
-                                                                                           idx))
-            # Interpolation in embedding space:
-            # ---------------------------------------------------------------------------------------------------------
+            feed_dict = {
+                z: batch_z,
+                cond: batch.embeddings,
+            }
 
-            _, cond1, _, caps1 = dataset.test.next_batch_test(1, dataset_pos, 1)
-            _, cond2, _, caps2 = dataset.test.next_batch_test(1, dataset_pos2, 1)
+            samples = sess.run(gen_op, feed_dict)
 
-            cond1 = np.squeeze(cond1, axis=0)
-            cond2 = np.squeeze(cond2, axis=0)
-            cap1, cap2 = caps1[0][0], caps2[0][0]
+            for index, img in enumerate(samples):
+                scipy.misc.imsave('%s/%d_%d' % (IMG_FOLDER, batch.ids[index], idx), img)
 
-            samples = gen_cond_interp_img(sess, gen_no_noise, cond1, cond2, z_dim, batch_size)
-            samples = np.clip(samples, -1, 1)
-            save_interp_cap_batch(samples, cap1, cap2,
-                                  '{}/{}_visual/cond_interp/cond_interp{}.png'.format(samples_dir,
-                                                                                      dataset.name,
-                                                                                      idx))
-            make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(samples_dir,
-                                                                                       dataset.name,
-                                                                                       idx), duration=10)
-
-            # Generate captioned inp_image
-            # ---------------------------------------------------------------------------------------------------------
-            _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
-            conditions = np.squeeze(conditions, axis=0)
-            caption = captions[0][0]
-            samples = gen_captioned_img(sess, gen_op, conditions, z_dim, batch_size)
-            samples = np.clip(samples, -1., 1.)
-
-            save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(samples_dir,
-                                                                                 dataset.name, idx))
-
-        special_flowers = [1126, 908, 398]
-        special_birds = [12, 908, 1005]
-        for idx, special_pos in enumerate(special_birds):
-            print(special_pos)
-            # Generate specific inp_image
-            # ---------------------------------------------------------------------------------------------------------
-            _, conditions, _, captions = dataset.test.next_batch_test(1, special_pos, 1)
-            conditions = np.squeeze(conditions, axis=0)
-            caption = captions[0][0]
-            samples = gen_captioned_img(sess, gen_op, conditions, z_dim, batch_size)
-            samples = np.clip(samples, -1., 1.)
-
-            save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(samples_dir,
-                                                                                         dataset.name, idx))
+        # dataset_pos = np.random.randint(0, dataset.test.num_examples)
+        # for idx in range(40):
+        #     dataset_pos = np.random.randint(0, dataset.test.num_examples)
+        #     dataset_pos2 = np.random.randint(0, dataset.test.num_examples)
+        #
+        #     # Interpolation in z space:
+        #     # ---------------------------------------------------------------------------------------------------------
+        #     _, cond, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
+        #     cond = np.squeeze(cond, axis=0)
+        #     caption = captions[0][0]
+        #
+        #     samples = gen_noise_interp_img(sess, gen_no_noise, cond, z_dim, batch_size)
+        #     samples = np.clip(samples, -1., 1.)
+        #     save_cap_batch(samples, caption, '{}/{}_visual/z_interp/z_interp{}.png'.format(samples_dir,
+        #                                                                                    dataset.name,
+        #                                                                                    idx))
+        #     # Interpolation in embedding space:
+        #     # ---------------------------------------------------------------------------------------------------------
+        #
+        #     _, cond1, _, caps1 = dataset.test.next_batch_test(1, dataset_pos, 1)
+        #     _, cond2, _, caps2 = dataset.test.next_batch_test(1, dataset_pos2, 1)
+        #
+        #     cond1 = np.squeeze(cond1, axis=0)
+        #     cond2 = np.squeeze(cond2, axis=0)
+        #     cap1, cap2 = caps1[0][0], caps2[0][0]
+        #
+        #     samples = gen_cond_interp_img(sess, gen_no_noise, cond1, cond2, z_dim, batch_size)
+        #     samples = np.clip(samples, -1, 1)
+        #     save_interp_cap_batch(samples, cap1, cap2,
+        #                           '{}/{}_visual/cond_interp/cond_interp{}.png'.format(samples_dir,
+        #                                                                               dataset.name,
+        #                                                                               idx))
+        #     make_gif(samples, '{}/{}_visual/cond_interp/gifs/cond_interp{}.gif'.format(samples_dir,
+        #                                                                                dataset.name,
+        #                                                                                idx), duration=10)
+        #
+        #     # Generate captioned inp_image
+        #     # ---------------------------------------------------------------------------------------------------------
+        #     _, conditions, _, captions = dataset.test.next_batch_test(1, dataset_pos, 1)
+        #     conditions = np.squeeze(conditions, axis=0)
+        #     caption = captions[0][0]
+        #     samples = gen_captioned_img(sess, gen_op, conditions, z_dim, batch_size)
+        #     samples = np.clip(samples, -1., 1.)
+        #
+        #     save_cap_batch(samples, caption, '{}/{}_visual/cap/cap{}.png'.format(samples_dir,
+        #                                                                          dataset.name, idx))
+        #
+        # special_flowers = [1126, 908, 398]
+        # special_birds = [12, 908, 1005]
+        # for idx, special_pos in enumerate(special_birds):
+        #     print(special_pos)
+        #     # Generate specific inp_image
+        #     # ---------------------------------------------------------------------------------------------------------
+        #     _, conditions, _, captions = dataset.test.next_batch_test(1, special_pos, 1)
+        #     conditions = np.squeeze(conditions, axis=0)
+        #     caption = captions[0][0]
+        #     samples = gen_captioned_img(sess, gen_op, conditions, z_dim, batch_size)
+        #     samples = np.clip(samples, -1., 1.)
+        #
+        #     save_cap_batch(samples, caption, '{}/{}_visual/special_cap/cap{}.png'.format(samples_dir,
+        #                                                                                  dataset.name, idx))
 
         # # Generate some images and their closest neighbours
         # # ---------------------------------------------------------------------------------------------------------
